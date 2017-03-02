@@ -368,12 +368,14 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/lib",
 				);
+				HEADER_SEARCH_PATHS = "lib/**";
 				INFOPLIST_FILE = BeamSIPKit/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.beamCommunications.BeamSIPKit;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PortSIPLib";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 3.0;
 			};
@@ -395,12 +397,14 @@
 					"$(inherited)",
 					"$(PROJECT_DIR)/lib",
 				);
+				HEADER_SEARCH_PATHS = "lib/**";
 				INFOPLIST_FILE = BeamSIPKit/Info.plist;
 				INSTALL_PATH = "$(LOCAL_LIBRARY_DIR)/Frameworks";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks @loader_path/Frameworks";
 				PRODUCT_BUNDLE_IDENTIFIER = com.beamCommunications.BeamSIPKit;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SKIP_INSTALL = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/PortSIPLib";
 				SWIFT_VERSION = 3.0;
 			};
 			name = Release;

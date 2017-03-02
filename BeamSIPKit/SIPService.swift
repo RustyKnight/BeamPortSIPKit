@@ -7,6 +7,8 @@
 //
 
 import Foundation
+import PortSIPLib
+
 //#import <PortSIPLib/PortSIPErrors.hxx>
 //#import <PortSIPLib/PortSIPEventDelegate.h>
 //#import <PortSIPLib/PortSIPSDK.h>
