@@ -15,6 +15,38 @@ import PortSIPLib
 //#import <PortSIPLib/PortSIPTypes.hxx>
 //#import <PortSIPLib/PortSIPVideoRenderView.h>
 
+public extension Notification.Name {
+
+	// When the call is coming, this event will be triggered.
+	public static let SIPIncomingCall = Notification.Name("SIP.incomingCall")
+	// If the outgoing call is being processed, this event will be triggered.
+	public static let SIPOutgoingCall = Notification.Name("SIP.outgoingCall")
+	// Once the caller received the "183 session in progress" message, this event will be triggered.
+	public static let SIPCallProgress = Notification.Name("SIP.callProgress")
+	// If the outgoing call is ringing, this event will be triggered.
+	public static let SIPCallRinging = Notification.Name("SIP.callRinging")
+	// If the remote party is answering the call, this event will be triggered.
+	public static let SIPCallAnswered = Notification.Name("SIP.callAnswered")
+	// If the outgoing call fails, this event will be triggered.
+	public static let SIPCallFailed = Notification.Name("SIP.callFailed")
+	// This event will be triggered when remote party updates this call.
+	public static let SIPCallUpdate = Notification.Name("SIP.callUpdated")
+	// This event will be triggered when UAC sent/UAS receives ACK (the call is connected).
+	// Some functions (hold, updateCall etc...) can be called only after the call is connected,
+	// otherwise it will return error.
+	public static let SIPCallConnected = Notification.Name("SIP.callConnected")
+	// If the enableCallForward method is called and a call is incoming, the call will be forwarded
+	// automatically and this event will be triggered.
+	public static let SIPCallBeginningForward = Notification.Name("SIP.callBeginningForward")
+	// This event will be triggered once remote side closes the call.
+	public static let SIPCallClosed = Notification.Name("SIP.callClosed")
+	// If the remote side has placed the call on hold, this event will be triggered.
+	public static let SIPCallRemoteHold = Notification.Name("SIP.callRemoteHold")
+	// If the remote side un-holds the call, this event will be triggered.
+	public static let SIPCallRemoteUnHold = Notification.Name("SIP.callRemoteUnHold")
+
+}
+
 
 public enum SIPResponseCode {
 	
