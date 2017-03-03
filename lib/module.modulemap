@@ -1,0 +1,8 @@
+module PortSIPLib {
+	header "PortSIPLib.framework/Headers/PortSIPErrors.hxx"
+	header "PortSIPLib.framework/Headers/PortSIPEventDelegate.h"
+	header "PortSIPLib.framework/Headers/PortSIPTypes.hxx"
+	header "PortSIPLib.framework/Headers/PortSIPVideoRenderView.h"
+
+	export *
+}
