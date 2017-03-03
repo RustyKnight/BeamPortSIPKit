@@ -52,6 +52,69 @@ struct SIPNotification {
 		public static let failure = Notification.Name("SIP.register.failure")
 	}
 
+	struct Refer {
+		public static let received = Notification.Name("SIP.refer.received")
+		public static let accepted = Notification.Name("SIP.refer.accepted")
+		public static let rejected = Notification.Name("SIP.refer.rejected")
+		public static let transferTrying = Notification.Name("SIP.refer.transferTrying")
+		public static let transferRinging = Notification.Name("SIP.refer.transferRinging")
+		public static let success = Notification.Name("SIP.refer.success")
+		public static let failure = Notification.Name("SIP.refer.failure")
+	}
+
+	// Messaging?
+	struct Signaling {
+		public static let received = Notification.Name("SIP.signaling.received")
+		public static let sending = Notification.Name("SIP.signaling.sending")
+	}
+
+	// MWI
+	struct MessageWaitingIndicator {
+		public static let voiceMessage = Notification.Name("SIP.mwi.voice")
+		public static let faxMessage = Notification.Name("SIP.mwi.fax")
+	}
+
+	struct DTMF {
+		public static let received = Notification.Name("SIP.dtmf.received")
+	}
+
+	struct Info {
+		public static let received = Notification.Name("SIP.info.received")
+	}
+
+	struct Options {
+		public static let received = Notification.Name("SIP.options.received")
+	}
+
+	struct Presence {
+		public static let receivedSubscription = Notification.Name("SIP.presence.receivedSubscription")
+		public static let online = Notification.Name("SIP.presence.online")
+		public static let offline = Notification.Name("SIP.presence.offline")
+	}
+
+	struct Message {
+		public static let received = Notification.Name("SIP.message.received")
+		public static let receivedOutOfDialog = Notification.Name("SIP.message.receivedOutOfDialog")
+		public static let sendSuccessful = Notification.Name("SIP.message.sendSuccessful")
+		public static let sendFailure = Notification.Name("SIP.message.sendFailure")
+		public static let sendOutOfDialogSuccess = Notification.Name("SIP.message.sendOutOfDialogSuccess")
+		public static let sendOutOfDialogFailure = Notification.Name("SIP.message.sendOutOfDialogFailure")
+	}
+
+	struct Play {
+		public static let audioFileFinished = Notification.Name("SIP.play.audioFileFinished")
+		public static let videoFileFinished = Notification.Name("SIP.play.videoFileFinished")
+	}
+
+	struct RTP {
+		public static let received = Notification.Name("SIP.rtp.audioFileFinished")
+		public static let sending = Notification.Name("SIP.rtp.videoFileFinished")
+	}
+
+	struct Stream {
+		public static let audio = Notification.Name("SIP.stream.audio")
+		public static let video = Notification.Name("SIP.stream.video")
+	}
 }
 
 
