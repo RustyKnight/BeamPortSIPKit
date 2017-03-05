@@ -9,14 +9,8 @@
 import Foundation
 import PortSIPLib
 
-//#import <PortSIPLib/PortSIPErrors.hxx>
-//#import <PortSIPLib/PortSIPEventDelegate.h>
-//#import <PortSIPLib/PortSIPSDK.h>
-//#import <PortSIPLib/PortSIPTypes.hxx>
-//#import <PortSIPLib/PortSIPVideoRenderView.h>
-
 struct SIPNotification {
-
+	
 	struct Call {
 		// When the call is coming, this event will be triggered.
 		public static let incoming = Notification.Name("SIP.call.incoming")
@@ -46,12 +40,12 @@ struct SIPNotification {
 		// If the remote side un-holds the call, this event will be triggered.
 		public static let remoteUnHold = Notification.Name("SIP.call.unhold")
 	}
-
+	
 	struct Register {
 		public static let success = Notification.Name("SIP.register.success")
 		public static let failure = Notification.Name("SIP.register.failure")
 	}
-
+	
 	struct Refer {
 		public static let received = Notification.Name("SIP.refer.received")
 		public static let accepted = Notification.Name("SIP.refer.accepted")
@@ -61,37 +55,39 @@ struct SIPNotification {
 		public static let success = Notification.Name("SIP.refer.success")
 		public static let failure = Notification.Name("SIP.refer.failure")
 	}
-
+	
 	// Messaging?
+	
 	struct Signaling {
 		public static let received = Notification.Name("SIP.signaling.received")
 		public static let sending = Notification.Name("SIP.signaling.sending")
 	}
-
+	
 	// MWI
+	
 	struct MessageWaitingIndicator {
 		public static let voiceMessage = Notification.Name("SIP.mwi.voice")
 		public static let faxMessage = Notification.Name("SIP.mwi.fax")
 	}
-
+	
 	struct DTMF {
 		public static let received = Notification.Name("SIP.dtmf.received")
 	}
-
+	
 	struct Info {
 		public static let received = Notification.Name("SIP.info.received")
 	}
-
+	
 	struct Options {
 		public static let received = Notification.Name("SIP.options.received")
 	}
-
+	
 	struct Presence {
 		public static let receivedSubscription = Notification.Name("SIP.presence.receivedSubscription")
 		public static let online = Notification.Name("SIP.presence.online")
 		public static let offline = Notification.Name("SIP.presence.offline")
 	}
-
+	
 	struct Message {
 		public static let received = Notification.Name("SIP.message.received")
 		public static let receivedOutOfDialog = Notification.Name("SIP.message.receivedOutOfDialog")
@@ -100,21 +96,22 @@ struct SIPNotification {
 		public static let sendOutOfDialogSuccess = Notification.Name("SIP.message.sendOutOfDialogSuccess")
 		public static let sendOutOfDialogFailure = Notification.Name("SIP.message.sendOutOfDialogFailure")
 	}
-
+	
 	struct Play {
 		public static let audioFileFinished = Notification.Name("SIP.play.audioFileFinished")
 		public static let videoFileFinished = Notification.Name("SIP.play.videoFileFinished")
 	}
-
+	
 	struct RTP {
 		public static let received = Notification.Name("SIP.rtp.audioFileFinished")
 		public static let sending = Notification.Name("SIP.rtp.videoFileFinished")
 	}
-
+	
 	struct Stream {
 		public static let audio = Notification.Name("SIP.stream.audio")
 		public static let video = Notification.Name("SIP.stream.video")
 	}
+	
 }
 
 
@@ -224,6 +221,57 @@ public protocol SIPSession {
 	func rejectWithUnavailable()
 }
 
+public enum SIPTransportProtocol: Int {
+	case udp = 0
+	case tls
+	case tcp
+	case pers
+	
+	var config: TRANSPORT_TYPE {
+		switch self {
+			case .udp: return TRANSPORT_UDP
+			case .tls: return TRANSPORT_TLS
+			case .tcp: return TRANSPORT_TCP
+			case .pers: return TRANSPORT_PERS
+		}
+	}
+}
+
+public enum SIPLogLevel: Int {
+	case none = -1
+	case error = 1
+	case warning
+	case info
+	case debug
+	case cout
+	
+	var config: PORTSIP_LOG_LEVEL {
+		switch self {
+			case .none: return PORTSIP_LOG_NONE
+			case .error: return PORTSIP_LOG_ERROR
+			case .warning: return PORTSIP_LOG_WARNING
+			case .info: return PORTSIP_LOG_INFO
+			case .debug: return PORTSIP_LOG_DEBUG
+			case .cout: return PORTSIP_LOG_COUT
+		}
+	}
+}
+
+public enum SIPDeviceLayer: Int {
+	case os = 0
+	case virtual
+}
+
+public protocol SIPServiceConfiguration {
+	var transportProtocol: SIPTransportProtocol { get }
+	var logLevel: SIPLogLevel {get}
+	var logFilePath: String {get}
+	var maxCallLines: Int {get}
+	var sipAgent: String {get}
+	var audioDeviceLayer: SIPDeviceLayer {get}
+	var videoDeviceLayer: SIPDeviceLayer {get}
+}
+
 public protocol SIPServiceCredentials {
 	var userName: String { get }
 	var password: String { get }
@@ -231,7 +279,7 @@ public protocol SIPServiceCredentials {
 	var displayName: String { get }
 }
 
-public protocol SIPServiceConfiguration {
+public protocol SIPServiceAccountConfiguration {
 	
 	var host: String { get }
 	var port: Int { get }
@@ -247,7 +295,7 @@ public struct DefaultSIPServiceCredentials: SIPServiceCredentials {
 	public let displayName: String
 }
 
-public struct DefaultSIPServiceConfiguration: SIPServiceConfiguration {
+public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
 	public let host: String
 	public let port: Int
 	public let credentials: SIPServiceCredentials
@@ -291,9 +339,16 @@ public enum SIPServiceStatus {
 
 public protocol SIPService {
 	
-	func initialise(with: SIPServiceConfiguration)
-	
+	func initialise(withConfiguration config: SIPServiceConfiguration, forAccount account: SIPServiceAccountConfiguration)
 	func deinitialise()
+	
+	var isInitialised: Bool {get}
+	
+	func register(expires: Int, retries: Int) throws
+	func unregister() throws
+	
+	var refreshInterval: Int {get set}
+	var isRegistered: Bool {get}
 	
 	func makeCall(to number: String, sendSDP: Bool) -> SIPSession
 	
@@ -331,7 +386,7 @@ public struct MutableSIPServiceManager {
 
 class DefaultSIPService: SIPService {
 	
-	func initialise(with: SIPServiceConfiguration) {
+	func initialise(with: SIPServiceAccountConfiguration) {
 	}
 	
 	func deinitialise() {
