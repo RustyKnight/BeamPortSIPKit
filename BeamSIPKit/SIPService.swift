@@ -227,7 +227,7 @@ public enum SIPTransportProtocol: Int {
 	case tcp
 	case pers
 	
-	var config: TRANSPORT_TYPE {
+	var type: TRANSPORT_TYPE {
 		switch self {
 			case .udp: return TRANSPORT_UDP
 			case .tls: return TRANSPORT_TLS
@@ -245,7 +245,7 @@ public enum SIPLogLevel: Int {
 	case debug
 	case cout
 	
-	var config: PORTSIP_LOG_LEVEL {
+	var type: PORTSIP_LOG_LEVEL {
 		switch self {
 			case .none: return PORTSIP_LOG_NONE
 			case .error: return PORTSIP_LOG_ERROR
@@ -257,19 +257,35 @@ public enum SIPLogLevel: Int {
 	}
 }
 
-public enum SIPDeviceLayer: Int {
+public enum SIPDeviceLayer: Int32 {
 	case os = 0
 	case virtual
 }
 
+public enum SIPSRTP: Int32 {
+	case none = 0
+	case force
+	case prefer
+	
+	var type: SRTP_POLICY {
+		switch self {
+			case .none: return SRTP_POLICY_NONE
+			case .force: return SRTP_POLICY_FORCE
+			case .prefer: return SRTP_POLICY_PREFER
+		}
+	}
+}
+
 public protocol SIPServiceConfiguration {
 	var transportProtocol: SIPTransportProtocol { get }
-	var logLevel: SIPLogLevel {get}
-	var logFilePath: String {get}
-	var maxCallLines: Int {get}
-	var sipAgent: String {get}
-	var audioDeviceLayer: SIPDeviceLayer {get}
-	var videoDeviceLayer: SIPDeviceLayer {get}
+	var logLevel: SIPLogLevel { get }
+	var logFilePath: String { get }
+	var maxCallLines: Int32 { get }
+	var sipAgent: String { get }
+	var audioDeviceLayer: SIPDeviceLayer { get }
+	var videoDeviceLayer: SIPDeviceLayer { get }
+	var srtp: SIPSRTP { get }
+	var licenseKey: String { get }
 }
 
 public protocol SIPServiceCredentials {
@@ -282,10 +298,19 @@ public protocol SIPServiceCredentials {
 public protocol SIPServiceAccountConfiguration {
 	
 	var host: String { get }
-	var port: Int { get }
+	var port: Int32 { get }
 	var credentials: SIPServiceCredentials { get }
-	var licenseKey: String { get }
 	
+	var localIPAddress: String {get}
+	var localPort: Int32 {get}
+	
+	var userDomain: String {get}
+	
+	var stunServer: String {get}
+	var stunServerPort: Int32 {get}
+	
+	var outboundServer: String {get}
+	var outboundServerPort: Int32 {get}
 }
 
 public struct DefaultSIPServiceCredentials: SIPServiceCredentials {
@@ -297,9 +322,18 @@ public struct DefaultSIPServiceCredentials: SIPServiceCredentials {
 
 public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
 	public let host: String
-	public let port: Int
+	public let port: Int32
 	public let credentials: SIPServiceCredentials
 	public let licenseKey: String
+	
+	public let localIPAddress: String
+	public let localPort: Int32
+	public let userDomain: Strin
+	public let stunServer: String
+	public let stunServerPort: Int32
+	public let outboundServer: String
+	public let outboundServerPort: Int32
+	
 }
 
 public enum DTMFTone: Int {
@@ -339,16 +373,20 @@ public enum SIPServiceStatus {
 
 public protocol SIPService {
 	
-	func initialise(withConfiguration config: SIPServiceConfiguration, forAccount account: SIPServiceAccountConfiguration)
+	func initialise(withConfiguration config: SIPServiceConfiguration) throws
+	
 	func deinitialise()
 	
-	var isInitialised: Bool {get}
+	func authenticate(_ account: SIPServiceAccountConfiguration)
+	
+	var isInitialised: Bool { get }
 	
 	func register(expires: Int, retries: Int) throws
+	
 	func unregister() throws
 	
-	var refreshInterval: Int {get set}
-	var isRegistered: Bool {get}
+	var refreshInterval: Int { get set }
+	var isRegistered: Bool { get }
 	
 	func makeCall(to number: String, sendSDP: Bool) -> SIPSession
 	
@@ -384,12 +422,104 @@ public struct MutableSIPServiceManager {
 	public static var shared: SIPService = DefaultSIPService()
 }
 
+public enum SIPError: Error {
+	case initializationError(code: Int32)
+}
+
 class DefaultSIPService: SIPService {
 	
-	func initialise(with: SIPServiceAccountConfiguration) {
+	var portSIP: PortSIPSDK
+	
+	init() {
+		portSIP = PortSIPSDK()
+	}
+	
+	private(set) var isInitialised: Bool = false
+	
+	func initialise(withConfiguration config: SIPServiceConfiguration) throws {
+		guard !isInitialised else {
+			return
+		}
+		
+		var ret = portSIP.initialize(
+				config.transportProtocol.type,
+				loglevel: config.logLevel.type,
+				logPath: config.logFilePath,
+				maxLine: config.maxCallLines,
+				agent: config.sipAgent,
+				audioDeviceLayer: config.audioDeviceLayer.rawValue,
+				videoDeviceLayer: config.videoDeviceLayer.rawValue)
+		guard ret == 0 else {
+			throw SIPError.initializationError(code: ret)
+		}
+		
+		portSIP.setSrtpPolicy(config.srtp.type);
+
+//		let localPort = 10000 + arc4random()%1000;
+//		var loaclIPaddress = "0.0.0.0";//Auto select IP address
+//
+//		ret = portSIPSDK.setUser(kUserName,displayName:kDisplayName, authName:kAuthName, password:kPassword, localIP:loaclIPaddress, localSIPPort:Int32(localPort), userDomain:kUserDomain, sipServer:kSIPServer, sipServerPort:Int32(kSIPServerPort!), stunServer:"", stunServerPort:0, outboundServer:"", outboundServerPort:0);
+//
+//		if(ret != 0){
+//			NSLog("setUser failure ErrorCode = %d",ret);
+//			return ;
+//		}
+		
+		ret = portSIP.setLicenseKey(config.licenseKey)
+		guard ret == 0 else {
+			try deinitialise()
+			throw SIPError.initializationError(code: ret)
+		}
+		
+		isInitialised = true
 	}
 	
 	func deinitialise() {
+		defer {
+			isInitialised = false
+		}
+		portSIP.unInitialize()
+	}
+	
+	func authenticate(_ account: SIPServiceAccountConfiguration) {
+		let localPort = 10000 + arc4random()%1000;
+		var loaclIPaddress = "0.0.0.0";//Auto select IP address
+
+		let ret = portSIP.setUser(
+				account.credentials.userName,
+				displayName: account.credentials.displayName,
+				authName: account.credentials.authName,
+				password: account.credentials.password,
+				localIP: loaclIPaddress,
+				localSIPPort: Int32(localPort),
+				userDomain: "",
+				sipServer: account.host,
+				sipServerPort: account.port,
+				stunServer:"",
+				stunServerPort:0,
+				outboundServer:"",
+				outboundServerPort:0);
+
+		if(ret != 0){
+			NSLog("setUser failure ErrorCode = %d",ret);
+			return ;
+		}
+	}
+	
+	private(set) var isRegistered: Bool = false
+	
+	func register(expires: Int, retries: Int) throws {
+	}
+	
+	func unregister() throws {
+	}
+	
+	var refreshInterval: Int {
+		get {
+			return 0
+		}
+		set {
+		}
 	}
 	
 	func makeCall(to number: String, sendSDP: Bool) -> SIPSession {
