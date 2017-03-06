@@ -83,7 +83,7 @@ public enum SIPResponseCode {
 		case preconditionFailure = 580
 	}
 	
-	public enum GloablFailure: Int {
+	public enum GlobalFailure: Int {
 		case busyEverywhere = 600
 		case decline = 603
 		case doesNotExistAnywhere
@@ -205,4 +205,9 @@ public enum SIPVideoCodec {
 			case .vp8: return VIDEO_CODEC_VP8
 		}
 	}
+}
+
+public enum SIPVideoDevice: Int32 {
+	case front = 0
+	case back = 1
 }
