@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5A682A1EBC46CEAA5A34F4E2 /* Types.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6823D8DD49B540F529FD06 /* Types.swift */; };
 		7004733B1E661AE500940807 /* BeamSIPKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 700473311E661AE500940807 /* BeamSIPKit.framework */; };
 		700473401E661AE500940807 /* BeamSIPKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7004733F1E661AE500940807 /* BeamSIPKitTests.swift */; };
 		7004734D1E661B4200940807 /* PortSIPLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7004734C1E661B4200940807 /* PortSIPLib.framework */; };
@@ -29,6 +30,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		5A6823D8DD49B540F529FD06 /* Types.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Types.swift; sourceTree = "<group>"; };
 		700473311E661AE500940807 /* BeamSIPKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BeamSIPKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		700473351E661AE500940807 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		7004733A1E661AE500940807 /* BeamSIPKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BeamSIPKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -92,6 +94,7 @@
 				7053D3821E66D5A7003A7BB8 /* BeamSIPKit.h */,
 				700473351E661AE500940807 /* Info.plist */,
 				700473561E661BB100940807 /* SIPService.swift */,
+				5A6823D8DD49B540F529FD06 /* Types.swift */,
 			);
 			path = BeamSIPKit;
 			sourceTree = "<group>";
@@ -231,6 +234,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				700473571E661BB100940807 /* SIPService.swift in Sources */,
+				5A682A1EBC46CEAA5A34F4E2 /* Types.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

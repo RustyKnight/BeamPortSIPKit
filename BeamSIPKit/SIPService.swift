@@ -114,92 +114,6 @@ struct SIPNotification {
 	
 }
 
-
-public enum SIPResponseCode {
-	
-	public enum Success: Int {
-		case ok = 200
-		case accepted = 202
-		case noNotification = 203
-	}
-	
-	public enum Redirection: Int {
-		case multipleChoices = 300
-		case movedPermanently
-		case movedTemporarily
-		case useProxy = 305
-		case alternativeService = 380
-	}
-	
-	public enum ClientFailure: Int {
-		case badRequest = 400
-		case unauthorized
-		case paymentRequired
-		case forbidden
-		case notFound
-		case methodNotFound
-		case notAcceptable
-		case proxyAuthenticationRequired
-		case requestTimeout
-		case conflict
-		case gone
-		case lengthRequired
-		case conditionalRequestFailed
-		case requestEntityTooLarge
-		case requestURITooLong
-		case unsupportedMediaType
-		case unsupportedURIScheme
-		case unknownResourcePriority
-		case badExtension = 420
-		case extensionRequired
-		case sessionIntervalTooSmall
-		case intervalTooBrief
-		case badLocationInformation
-		case useIdentityHeader
-		case provideReferrerIdentity
-		case flowFailed
-		case anonymityDisallowed = 433
-		case badIdentityInfo = 436
-		case unsupportedCertificate
-		case invalidIdentityHeader
-		case firstHopLacksOutboundSupport
-		case consentNeeded = 470
-		case temporarilyUnavailable = 480
-		case callOrTransactionDoesNotExist
-		case loopDetected
-		case tooManyHops
-		case addressIncomplete
-		case ambiguous
-		case busyHere
-		case requestTerminated
-		case notAcceptableHere
-		case badEvent
-		case requestPending = 491
-		case undecipherable = 493
-		case securityAgreementRequired = 494
-	}
-	
-	public enum ServerFailure: Int {
-		case internalError = 500
-		case notImplemented
-		case BadGateway
-		case serviceUnavailable
-		case serverTimeout
-		case versionNotSupported
-		
-		case messageTooLarge = 513
-		case preconditionFailure = 580
-	}
-	
-	public enum GloablFailure: Int {
-		case busyEverywhere = 600
-		case decline = 603
-		case doesNotExistAnywhere
-		case notAcceptable = 606
-	}
-	
-}
-
 public protocol SIPSession {
 	var timeOfCall: Date { get }
 	var durationOfCall: TimeInterval { get }
@@ -221,61 +135,6 @@ public protocol SIPSession {
 	func rejectWithUnavailable()
 }
 
-public enum SIPTransportProtocol: Int {
-	case udp = 0
-	case tls
-	case tcp
-	case pers
-	
-	var type: TRANSPORT_TYPE {
-		switch self {
-			case .udp: return TRANSPORT_UDP
-			case .tls: return TRANSPORT_TLS
-			case .tcp: return TRANSPORT_TCP
-			case .pers: return TRANSPORT_PERS
-		}
-	}
-}
-
-public enum SIPLogLevel: Int {
-	case none = -1
-	case error = 1
-	case warning
-	case info
-	case debug
-	case cout
-	
-	var type: PORTSIP_LOG_LEVEL {
-		switch self {
-			case .none: return PORTSIP_LOG_NONE
-			case .error: return PORTSIP_LOG_ERROR
-			case .warning: return PORTSIP_LOG_WARNING
-			case .info: return PORTSIP_LOG_INFO
-			case .debug: return PORTSIP_LOG_DEBUG
-			case .cout: return PORTSIP_LOG_COUT
-		}
-	}
-}
-
-public enum SIPDeviceLayer: Int32 {
-	case os = 0
-	case virtual
-}
-
-public enum SIPSRTP: Int32 {
-	case none = 0
-	case force
-	case prefer
-	
-	var type: SRTP_POLICY {
-		switch self {
-			case .none: return SRTP_POLICY_NONE
-			case .force: return SRTP_POLICY_FORCE
-			case .prefer: return SRTP_POLICY_PREFER
-		}
-	}
-}
-
 public protocol SIPServiceConfiguration {
 	var transportProtocol: SIPTransportProtocol { get }
 	var logLevel: SIPLogLevel { get }
@@ -295,22 +154,19 @@ public protocol SIPServiceCredentials {
 	var displayName: String { get }
 }
 
+public protocol SIPServer {
+	var address: String {get}
+	var port: Int32
+}
+
 public protocol SIPServiceAccountConfiguration {
-	
-	var host: String { get }
-	var port: Int32 { get }
+
+	var sipServer: SIPServer {get}
 	var credentials: SIPServiceCredentials { get }
-	
-	var localIPAddress: String {get}
-	var localPort: Int32 {get}
-	
+	var localServer: SIPServer {get}
 	var userDomain: String {get}
-	
-	var stunServer: String {get}
-	var stunServerPort: Int32 {get}
-	
-	var outboundServer: String {get}
-	var outboundServerPort: Int32 {get}
+	var stunServer: SIPServer {get}
+	var outboundServer: SIPServer {get}
 }
 
 public struct DefaultSIPServiceCredentials: SIPServiceCredentials {
@@ -320,19 +176,49 @@ public struct DefaultSIPServiceCredentials: SIPServiceCredentials {
 	public let displayName: String
 }
 
-public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
-	public let host: String
+public struct DefaultSIPServer: SIPServer {
+	public let address: String
 	public let port: Int32
-	public let credentials: SIPServiceCredentials
-	public let licenseKey: String
 	
-	public let localIPAddress: String
-	public let localPort: Int32
-	public let userDomain: Strin
-	public let stunServer: String
-	public let stunServerPort: Int32
-	public let outboundServer: String
-	public let outboundServerPort: Int32
+	init(address: String = "", port: Int32 = 0) {
+		self.address = address
+		self.port = port
+	}
+}
+
+public struct DefaultLocalServer: SIPServer {
+	public let address: String
+	public let port: Int32
+	
+	init(address: String = "0.0.0.0", port: Int32 = 10000 + arc4random() % 1000) {
+		self.address = address
+		self.port = port
+	}
+}
+
+public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
+	public let sipServer: SIPServer
+	public let credentials: SIPServiceCredentials
+	
+	public let localServer: SIPServer
+	public let userDomain: String
+	public let stunServer: SIPServer
+	public let outboundServer: SIPServer
+	
+	public init(
+					sipServer: SIPServer,
+					credentials: SIPServiceCredentials,
+					localServer: SIPServer = DefaultLocalServer(),
+					userDomain: String = "",
+					stunServer: SIPServer = DefaultSIPServer(),
+					outboundServer: SIPServer = DefaultSIPServer()) {
+		self.sipServer = sipServer
+		self.credentials = credentials
+		self.localServer = localIPAddress
+		self.userDomain = userDomain
+		self.stunServer = stunServer
+		self.outboundServer = outboundServer
+	}
 	
 }
 
@@ -377,7 +263,7 @@ public protocol SIPService {
 	
 	func deinitialise()
 	
-	func authenticate(_ account: SIPServiceAccountConfiguration)
+	func authenticate(_ account: SIPServiceAccountConfiguration) throws
 	
 	var isInitialised: Bool { get }
 	
@@ -412,6 +298,11 @@ public protocol SIPService {
 	
 	func send(_ tone: DTMFTone, to session: SIPSession)
 	
+	func add(audioCodecs: SIPAudioCodec...)
+	func add(audioCodecs: [SIPAudioCodec])
+	
+	func add(videoCodecs: SIPVideoCodec...)
+	func add(videoCodecs: [SIPVideoCodec])
 }
 
 public struct SIPServiceManager {
@@ -424,6 +315,9 @@ public struct MutableSIPServiceManager {
 
 public enum SIPError: Error {
 	case initializationError(code: Int32)
+	case authenticationFailed(code: Int32)
+	case registrationFailed(code: Int32)
+	case notInitialisedYet
 }
 
 class DefaultSIPService: SIPService {
@@ -481,34 +375,41 @@ class DefaultSIPService: SIPService {
 		portSIP.unInitialize()
 	}
 	
-	func authenticate(_ account: SIPServiceAccountConfiguration) {
-		let localPort = 10000 + arc4random()%1000;
-		var loaclIPaddress = "0.0.0.0";//Auto select IP address
-
+	func authenticate(_ account: SIPServiceAccountConfiguration) throws {
 		let ret = portSIP.setUser(
 				account.credentials.userName,
 				displayName: account.credentials.displayName,
 				authName: account.credentials.authName,
 				password: account.credentials.password,
-				localIP: loaclIPaddress,
-				localSIPPort: Int32(localPort),
-				userDomain: "",
-				sipServer: account.host,
-				sipServerPort: account.port,
-				stunServer:"",
-				stunServerPort:0,
-				outboundServer:"",
-				outboundServerPort:0);
+				localIP: account.localServer.address,
+				localSIPPort: account.localServer.port,
+				userDomain: account.userDomain,
+				sipServer: account.sipServer.address,
+				sipServerPort: account.sipServer.port,
+				stunServer: account.stunServer,
+				stunServerPort: account.stunServerPort,
+				outboundServer: account.outboundServer,
+				outboundServerPort: account.outboundServerPort);
 
 		if(ret != 0){
-			NSLog("setUser failure ErrorCode = %d",ret);
-			return ;
+			throw SIPError.authenitcationFailed(code: ret)
 		}
 	}
 	
 	private(set) var isRegistered: Bool = false
 	
 	func register(expires: Int, retries: Int) throws {
+		guard isInitialised else {
+			throw SIPError.notInitialisedYet
+		}
+		let result = portSIP.registerServer(expires, retries)
+		guard result == 0 else {
+			do {
+				try deinitialise()
+			} catch {}
+			throw SIPError.registrationFailed(code: result)
+		}
+		isRegistered = true
 	}
 	
 	func unregister() throws {
@@ -553,6 +454,30 @@ class DefaultSIPService: SIPService {
 	}
 	
 	func send(_ tone: DTMFTone, to session: SIPSession) {
+	}
+	
+	func add(audioCodecs: SIPAudioCodec...) {
+		for codec in audioCodecs {
+			portSIP.addAudioCodec(codec.type)
+		}
+	}
+	
+	func add(audioCodecs: [SIPAudioCodec]) {
+		for codec in audioCodecs {
+			portSIP.addAudioCodec(codec.type)
+		}
+	}
+	
+	func add(videoCodecs: SIPVideoCodec...) {
+		for codec in videoCodecs {
+			portSIP.addVideoCodec(codec.type)
+		}
+	}
+	
+	func add(videoCodecs: [SIPVideoCodec]) {
+		for codec in videoCodecs {
+			portSIP.addVideoCodec(codec.type)
+		}
 	}
 	
 }
