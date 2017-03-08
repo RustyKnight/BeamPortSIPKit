@@ -161,7 +161,7 @@ public enum SIPAudioCodec: Int32 {
 	case dtmf
 	case speexWB
 	case isacWB
-	case isacWB
+	case isacsWB
 	case opus
 	case g7221 = 121
 
@@ -180,14 +180,14 @@ public enum SIPAudioCodec: Int32 {
 			case .dtmf: return AUDIOCODEC_DTMF
 			case .speexWB: return AUDIOCODEC_SPEEXWB
 			case .isacWB: return AUDIOCODEC_ISACWB
-			case .isacWB: return AUDIOCODEC_ISACSWB
+			case .isacsWB: return AUDIOCODEC_ISACSWB
 			case .opus: return AUDIOCODEC_OPUS
 			case .g7221: return AUDIOCODEC_G7221
 		}
 	}
 }
 
-public enum SIPVideoCodec {
+public enum SIPVideoCodec: Int32 {
 	case none = -1
 	case i420 = 113
 	case h263 = 32

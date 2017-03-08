@@ -156,7 +156,7 @@ public protocol SIPServiceCredentials {
 
 public protocol SIPServer {
 	var address: String {get}
-	var port: Int32
+	var port: Int32 {get}
 }
 
 public protocol SIPServiceAccountConfiguration {
@@ -190,7 +190,7 @@ public struct DefaultLocalServer: SIPServer {
 	public let address: String
 	public let port: Int32
 	
-	init(address: String = "0.0.0.0", port: Int32 = 10000 + arc4random() % 1000) {
+	init(address: String = "0.0.0.0", port: Int32 = ((10000 + Int(arc4random())) % 1000)) {
 		self.address = address
 		self.port = port
 	}
@@ -214,7 +214,7 @@ public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
 					outboundServer: SIPServer = DefaultSIPServer()) {
 		self.sipServer = sipServer
 		self.credentials = credentials
-		self.localServer = localIPAddress
+		self.localServer = localServer
 		self.userDomain = userDomain
 		self.stunServer = stunServer
 		self.outboundServer = outboundServer
@@ -242,14 +242,6 @@ public enum DTMFTone: Int {
 	case flash
 }
 
-public enum SIPSessionStatus {
-	case none
-	case outgoingInvite
-	case incomingInvite
-	case outgoingActive
-	case incomingActive
-}
-
 public enum SIPServiceStatus {
 	case disconnected
 	case connecting
@@ -258,51 +250,31 @@ public enum SIPServiceStatus {
 }
 
 public protocol SIPService {
-	
+
+	// MARK: Initialisation and registration
+
 	func initialise(withConfiguration config: SIPServiceConfiguration) throws
-	
 	func deinitialise()
-	
 	func authenticate(_ account: SIPServiceAccountConfiguration) throws
-	
-	var isInitialised: Bool { get }
-	
-	func register(expires: Int, retries: Int) throws
-	
+	func register(expires: Int32, retries: Int32) throws
 	func unregister() throws
-	
-	var refreshInterval: Int { get set }
+
+	var isInitialised: Bool { get }
+	func refreshInterval(_ interval: Int32) throws
 	var isRegistered: Bool { get }
-	
-	func makeCall(to number: String, sendSDP: Bool) -> SIPSession
-	
-	var isConnected: Bool { get set }
-	
-	var isSpeakerOn: Bool { get set }
-	var isKeepAwake: Bool { get set }
-	var isMicroPhoneMuted: Bool { get set }
-	var isSpeakerMuted: Bool { get set }
-	
-	func answer(call: SIPSession)
-	
-	func reject(call: SIPSession)
-	
-	func end(call: SIPSession)
-	
+
 	var status: SIPServiceStatus { get }
-	var sessionStatus: SIPSessionStatus { get }
-	
-	func session(byID: Int) -> SIPSession?
-	var sessionCount: Int { get }
-	var sessions: [SIPSession] { get }
-	
-	func send(_ tone: DTMFTone, to session: SIPSession)
-	
-	func add(audioCodecs: SIPAudioCodec...)
-	func add(audioCodecs: [SIPAudioCodec])
-	
-	func add(videoCodecs: SIPVideoCodec...)
-	func add(videoCodecs: [SIPVideoCodec])
+
+//	var isConnected: Bool { get set }
+
+	var nicManager: SIPNICManager {get}
+	var sessionManager: SIPSessionManager {get}
+
+	// MARK: Codec support
+
+	var audioCodeManager: AudioCodecManager {get}
+	var videoCodeManager: VideoCodecManager {get}
+
 }
 
 public struct SIPServiceManager {
@@ -316,16 +288,29 @@ public struct MutableSIPServiceManager {
 public enum SIPError: Error {
 	case initializationError(code: Int32)
 	case authenticationFailed(code: Int32)
-	case registrationFailed(code: Int32)
+	case apiCallFailedWith(code: Int32)
 	case notInitialisedYet
+
+}
+
+protocol SIPSupportManager {
+	var portSIPSDK: PortSIPSDK {get}
+}
+
+public class DefaultSIPSupportManager: SIPSupportManager {
+	let portSIPSDK: PortSIPSDK
+
+	init(portSIPSDK: PortSIPSDK) {
+		self.portSIPSDK = portSIPSDK
+	}
 }
 
 class DefaultSIPService: SIPService {
 	
-	var portSIP: PortSIPSDK
+	var portSIPSDK: PortSIPSDK!
 	
 	init() {
-		portSIP = PortSIPSDK()
+		portSIPSDK = PortSIPSDK()
 	}
 	
 	private(set) var isInitialised: Bool = false
@@ -335,7 +320,7 @@ class DefaultSIPService: SIPService {
 			return
 		}
 		
-		var ret = portSIP.initialize(
+		var ret = portSIPSDK.initialize(
 				config.transportProtocol.type,
 				loglevel: config.logLevel.type,
 				logPath: config.logFilePath,
@@ -347,21 +332,11 @@ class DefaultSIPService: SIPService {
 			throw SIPError.initializationError(code: ret)
 		}
 		
-		portSIP.setSrtpPolicy(config.srtp.type);
+		portSIPSDK.setSrtpPolicy(config.srtp.type);
 
-//		let localPort = 10000 + arc4random()%1000;
-//		var loaclIPaddress = "0.0.0.0";//Auto select IP address
-//
-//		ret = portSIPSDK.setUser(kUserName,displayName:kDisplayName, authName:kAuthName, password:kPassword, localIP:loaclIPaddress, localSIPPort:Int32(localPort), userDomain:kUserDomain, sipServer:kSIPServer, sipServerPort:Int32(kSIPServerPort!), stunServer:"", stunServerPort:0, outboundServer:"", outboundServerPort:0);
-//
-//		if(ret != 0){
-//			NSLog("setUser failure ErrorCode = %d",ret);
-//			return ;
-//		}
-		
-		ret = portSIP.setLicenseKey(config.licenseKey)
+		ret = portSIPSDK.setLicenseKey(config.licenseKey)
 		guard ret == 0 else {
-			try deinitialise()
+			deinitialise()
 			throw SIPError.initializationError(code: ret)
 		}
 		
@@ -372,11 +347,12 @@ class DefaultSIPService: SIPService {
 		defer {
 			isInitialised = false
 		}
-		portSIP.unInitialize()
+		status = .disconnected
+		portSIPSDK.unInitialize()
 	}
 	
 	func authenticate(_ account: SIPServiceAccountConfiguration) throws {
-		let ret = portSIP.setUser(
+		let ret = portSIPSDK.setUser(
 				account.credentials.userName,
 				displayName: account.credentials.displayName,
 				authName: account.credentials.authName,
@@ -386,98 +362,67 @@ class DefaultSIPService: SIPService {
 				userDomain: account.userDomain,
 				sipServer: account.sipServer.address,
 				sipServerPort: account.sipServer.port,
-				stunServer: account.stunServer,
-				stunServerPort: account.stunServerPort,
-				outboundServer: account.outboundServer,
-				outboundServerPort: account.outboundServerPort);
+				stunServer: account.stunServer.address,
+				stunServerPort: account.stunServer.port,
+				outboundServer: account.outboundServer.address,
+				outboundServerPort: account.outboundServer.port);
 
 		if(ret != 0){
-			throw SIPError.authenitcationFailed(code: ret)
+			throw SIPError.authenticationFailed(code: ret)
 		}
 	}
 	
 	private(set) var isRegistered: Bool = false
 	
-	func register(expires: Int, retries: Int) throws {
+	func register(expires: Int32, retries: Int32) throws {
 		guard isInitialised else {
+			status = .disconnected
 			throw SIPError.notInitialisedYet
 		}
-		let result = portSIP.registerServer(expires, retries)
+		status = .connecting
+		let result = portSIPSDK.registerServer(expires, retryTimes: retries)
 		guard result == 0 else {
-			do {
-				try deinitialise()
-			} catch {}
-			throw SIPError.registrationFailed(code: result)
+			deinitialise()
+			throw SIPError.apiCallFailedWith(code: result)
 		}
+		status = .connected
 		isRegistered = true
 	}
 	
 	func unregister() throws {
-	}
-	
-	var refreshInterval: Int {
-		get {
-			return 0
+		status = .disconnecting
+		let result = portSIPSDK.unRegisterServer()
+		status = .disconnected
+		guard result == 0 else {
+			deinitialise()
+			throw SIPError.apiCallFailedWith(code: result)
 		}
-		set {
+	}
+
+	func refreshInterval(_ interval: Int32) throws {
+		let result = portSIPSDK.refreshRegisterServer(interval)
+		guard result == 0 else {
+			deinitialise()
+			throw SIPError.apiCallFailedWith(code: result)
 		}
 	}
-	
-	func makeCall(to number: String, sendSDP: Bool) -> SIPSession {
-		fatalError("Not yet implemented")
-	}
-	
-	var isConnected: Bool = false
-	var isSpeakerOn: Bool = false
-	var isKeepAwake: Bool = false
-	var isMicroPhoneMuted: Bool = false
-	var isSpeakerMuted: Bool = false
-	
+
 	var status: SIPServiceStatus = .disconnected
-	var sessionStatus: SIPSessionStatus = .none
-	var sessionCount: Int {
-		return sessions.count
+
+	var nicManager: SIPNICManager {
+		return DefaultSIPNICManager(portSIPSDK: portSIPSDK)
 	}
-	var sessions: [SIPSession] = []
-	
-	func answer(call: SIPSession) {
+	var sessionManager: SIPSessionManager {
+		return DefaultSIPSessionManager(portSIPSDK: portSIPSDK)
 	}
-	
-	func reject(call: SIPSession) {
+
+
+	var audioCodeManager: AudioCodecManager {
+		return AudioCodecManager(portSIPSDK: portSIPSDK)
 	}
-	
-	func end(call: SIPSession) {
+
+	var videoCodeManager: VideoCodecManager {
+		return VideoCodecManager(portSIPSDK: portSIPSDK)
 	}
-	
-	func session(byID: Int) -> SIPSession? {
-		return nil
-	}
-	
-	func send(_ tone: DTMFTone, to session: SIPSession) {
-	}
-	
-	func add(audioCodecs: SIPAudioCodec...) {
-		for codec in audioCodecs {
-			portSIP.addAudioCodec(codec.type)
-		}
-	}
-	
-	func add(audioCodecs: [SIPAudioCodec]) {
-		for codec in audioCodecs {
-			portSIP.addAudioCodec(codec.type)
-		}
-	}
-	
-	func add(videoCodecs: SIPVideoCodec...) {
-		for codec in videoCodecs {
-			portSIP.addVideoCodec(codec.type)
-		}
-	}
-	
-	func add(videoCodecs: [SIPVideoCodec]) {
-		for codec in videoCodecs {
-			portSIP.addVideoCodec(codec.type)
-		}
-	}
-	
+
 }
