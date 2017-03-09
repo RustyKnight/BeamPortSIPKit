@@ -8,13 +8,13 @@ import PortSIPLib
 
 
 public enum SIPResponseCode {
-	
+
 	public enum Success: Int {
 		case ok = 200
 		case accepted = 202
 		case noNotification = 203
 	}
-	
+
 	public enum Redirection: Int {
 		case multipleChoices = 300
 		case movedPermanently
@@ -22,8 +22,8 @@ public enum SIPResponseCode {
 		case useProxy = 305
 		case alternativeService = 380
 	}
-	
-	public enum ClientFailure: Int {
+
+	public enum ClientFailure: Int32 {
 		case badRequest = 400
 		case unauthorized
 		case paymentRequired
@@ -70,7 +70,7 @@ public enum SIPResponseCode {
 		case undecipherable = 493
 		case securityAgreementRequired = 494
 	}
-	
+
 	public enum ServerFailure: Int {
 		case internalError = 500
 		case notImplemented
@@ -78,18 +78,18 @@ public enum SIPResponseCode {
 		case serviceUnavailable
 		case serverTimeout
 		case versionNotSupported
-		
+
 		case messageTooLarge = 513
 		case preconditionFailure = 580
 	}
-	
+
 	public enum GlobalFailure: Int {
 		case busyEverywhere = 600
 		case decline = 603
 		case doesNotExistAnywhere
 		case notAcceptable = 606
 	}
-	
+
 }
 
 public enum SIPTransportProtocol: Int {
@@ -97,7 +97,7 @@ public enum SIPTransportProtocol: Int {
 	case tls
 	case tcp
 	case pers
-	
+
 	var type: TRANSPORT_TYPE {
 		switch self {
 		case .udp: return TRANSPORT_UDP
@@ -115,7 +115,7 @@ public enum SIPLogLevel: Int {
 	case info
 	case debug
 	case cout
-	
+
 	var type: PORTSIP_LOG_LEVEL {
 		switch self {
 		case .none: return PORTSIP_LOG_NONE
@@ -137,7 +137,7 @@ public enum SIPSRTP: Int32 {
 	case none = 0
 	case force
 	case prefer
-	
+
 	var type: SRTP_POLICY {
 		switch self {
 		case .none: return SRTP_POLICY_NONE
@@ -167,22 +167,22 @@ public enum SIPAudioCodec: Int32 {
 
 	var type: AUDIOCODEC_TYPE {
 		switch self {
-			case .none: return AUDIOCODEC_NONE
-			case .g729: return AUDIOCODEC_G729
-			case .pcma: return AUDIOCODEC_PCMA
-			case .pcmu: return AUDIOCODEC_PCMU
-			case .gsm: return AUDIOCODEC_GSM
-			case .g722: return AUDIOCODEC_G722
-			case .ilbc: return AUDIOCODEC_ILBC
-			case .amr: return AUDIOCODEC_AMR
-			case .amrwb: return AUDIOCODEC_AMRWB
-			case .speex: return AUDIOCODEC_SPEEX
-			case .dtmf: return AUDIOCODEC_DTMF
-			case .speexWB: return AUDIOCODEC_SPEEXWB
-			case .isacWB: return AUDIOCODEC_ISACWB
-			case .isacsWB: return AUDIOCODEC_ISACSWB
-			case .opus: return AUDIOCODEC_OPUS
-			case .g7221: return AUDIOCODEC_G7221
+		case .none: return AUDIOCODEC_NONE
+		case .g729: return AUDIOCODEC_G729
+		case .pcma: return AUDIOCODEC_PCMA
+		case .pcmu: return AUDIOCODEC_PCMU
+		case .gsm: return AUDIOCODEC_GSM
+		case .g722: return AUDIOCODEC_G722
+		case .ilbc: return AUDIOCODEC_ILBC
+		case .amr: return AUDIOCODEC_AMR
+		case .amrwb: return AUDIOCODEC_AMRWB
+		case .speex: return AUDIOCODEC_SPEEX
+		case .dtmf: return AUDIOCODEC_DTMF
+		case .speexWB: return AUDIOCODEC_SPEEXWB
+		case .isacWB: return AUDIOCODEC_ISACWB
+		case .isacsWB: return AUDIOCODEC_ISACSWB
+		case .opus: return AUDIOCODEC_OPUS
+		case .g7221: return AUDIOCODEC_G7221
 		}
 	}
 }
@@ -194,15 +194,15 @@ public enum SIPVideoCodec: Int32 {
 	case h263PlusH1998 = 115
 	case h264 = 125
 	case vp8 = 120
-	
+
 	var type: VIDEOCODEC_TYPE {
 		switch self {
-			case .none: return VIDEO_CODEC_NONE
-			case .i420: return VIDEO_CODEC_I420
-			case .h263: return VIDEO_CODEC_H263
-			case .h263PlusH1998: return VIDEO_CODEC_H263_1998
-			case .h264: return VIDEO_CODEC_H264
-			case .vp8: return VIDEO_CODEC_VP8
+		case .none: return VIDEO_CODEC_NONE
+		case .i420: return VIDEO_CODEC_I420
+		case .h263: return VIDEO_CODEC_H263
+		case .h263PlusH1998: return VIDEO_CODEC_H263_1998
+		case .h264: return VIDEO_CODEC_H264
+		case .vp8: return VIDEO_CODEC_VP8
 		}
 	}
 }
@@ -210,4 +210,16 @@ public enum SIPVideoCodec: Int32 {
 public enum SIPVideoDevice: Int32 {
 	case front = 0
 	case back = 1
+}
+
+public enum SIPDTMF: Int32 {
+	case rfc2833 = 0
+	case info
+
+	var type: DTMF_METHOD {
+		switch self {
+		case .rfc2833: return DTMF_RFC2833
+		case .info: return DTMF_INFO
+		}
+	}
 }

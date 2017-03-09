@@ -39,11 +39,19 @@ struct SIPNotification {
 		public static let remoteHold = Notification.Name("SIP.call.hold")
 		// If the remote side un-holds the call, this event will be triggered.
 		public static let remoteUnHold = Notification.Name("SIP.call.unhold")
+
+		struct Key {
+			public static let session = "SIP.call.session"
+		}
 	}
 	
 	struct Register {
 		public static let success = Notification.Name("SIP.register.success")
 		public static let failure = Notification.Name("SIP.register.failure")
+
+		struct Key {
+			public static let status = "SIP.register.status"
+		}
 	}
 	
 	struct Refer {
@@ -112,27 +120,6 @@ struct SIPNotification {
 		public static let video = Notification.Name("SIP.stream.video")
 	}
 	
-}
-
-public protocol SIPSession {
-	var timeOfCall: Date { get }
-	var durationOfCall: TimeInterval { get }
-	var number: String { get }
-	var id: Int { get }
-	
-	func answer()
-	
-	func reject()
-	
-	func end()
-	
-	var isOnHold: Bool { get set }
-	
-	func reject(withReason code: SIPResponseCode.ClientFailure)
-	
-	func rejectWithBusyHere()
-	
-	func rejectWithUnavailable()
 }
 
 public protocol SIPServiceConfiguration {
@@ -222,26 +209,6 @@ public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
 	
 }
 
-public enum DTMFTone: Int {
-	case number0 = 0
-	case number1
-	case number2
-	case number3
-	case number4
-	case number5
-	case number6
-	case number7
-	case number8
-	case number9
-	case star
-	case hash
-	case toneA
-	case toneB
-	case toneC
-	case toneD
-	case flash
-}
-
 public enum SIPServiceStatus {
 	case disconnected
 	case connecting
@@ -275,6 +242,11 @@ public protocol SIPService {
 	var audioCodeManager: AudioCodecManager {get}
 	var videoCodeManager: VideoCodecManager {get}
 
+	var isSpeakerOn: Bool { get set }
+	var isKeepAwake: Bool { get set }
+	var isMicroPhoneMuted: Bool { get set }
+	var isSpeakerMuted: Bool { get set }
+
 }
 
 public struct SIPServiceManager {
@@ -305,11 +277,12 @@ public class DefaultSIPSupportManager: SIPSupportManager {
 	}
 }
 
-class DefaultSIPService: SIPService {
+class DefaultSIPService: NSObject, SIPService {
 	
 	var portSIPSDK: PortSIPSDK!
 	
-	init() {
+	override init() {
+		super.init()
 		portSIPSDK = PortSIPSDK()
 	}
 	
@@ -416,13 +389,257 @@ class DefaultSIPService: SIPService {
 		return DefaultSIPSessionManager(portSIPSDK: portSIPSDK)
 	}
 
-
 	var audioCodeManager: AudioCodecManager {
 		return AudioCodecManager(portSIPSDK: portSIPSDK)
 	}
 
 	var videoCodeManager: VideoCodecManager {
 		return VideoCodecManager(portSIPSDK: portSIPSDK)
+	}
+
+	var isSpeakerOn: Bool = false {
+		didSet {
+			if portSIPSDK.setLoudspeakerStatus(isSpeakerOn) != 0 && isSpeakerOn {
+				isSpeakerOn = false
+			}
+		}
+	}
+
+	var isKeepAwake: Bool = false {
+		didSet {
+			if isKeepAwake {
+				isKeepAwake = portSIPSDK.startKeepAwake()
+			} else {
+				portSIPSDK.stopKeepAwake()
+			}
+		}
+	}
+
+	var isMicroPhoneMuted: Bool = false {
+		didSet {
+			portSIPSDK.muteMicrophone(isMicroPhoneMuted)
+		}
+	}
+
+	var isSpeakerMuted: Bool = false {
+		didSet {
+			portSIPSDK.muteSpeaker(isSpeakerMuted)
+		}
+	}
+
+}
+
+public protocol SIPRegistrationStatus {
+	var text: String {get}
+	var code: Int32 {get}
+}
+
+struct DefaultSIPRegistrationStatus: SIPRegistrationStatus {
+	let text: String
+	let code: Int32
+}
+
+extension DefaultSIPService: PortSIPEventDelegate {
+
+	func string(from text: UnsafeMutablePointer<Int8>!) -> String {
+		return String.init(validatingUTF8: text)!
+	}
+
+	func notify(_ status: SIPRegistrationStatus, with name: NSNotification.Name) {
+		let userInfo: [String: Any] = [
+				SIPNotification.Register.Key.status: status
+		]
+
+		NotificationCenter.default.post(
+				name: name,
+				object: self,
+				userInfo: userInfo)
+	}
+
+	public func onRegisterSuccess(_ statusText: UnsafeMutablePointer<Int8>!, statusCode: Int32) {
+		let status = DefaultSIPRegistrationStatus(
+				text: String.init(validatingUTF8: statusText)!,
+				code: statusCode)
+
+		notify(status, with: SIPNotification.Register.success)
+	}
+
+	public func onRegisterFailure(_ statusText: UnsafeMutablePointer<Int8>!, statusCode: Int32) {
+		let status = DefaultSIPRegistrationStatus(
+				text: String.init(validatingUTF8: statusText)!,
+				code: statusCode)
+
+		notify(status, with: SIPNotification.Register.failure)
+	}
+
+	public func onInviteIncoming(
+			_ sessionId: Int,
+			callerDisplayName: UnsafeMutablePointer<Int8>!,
+			caller: UnsafeMutablePointer<Int8>!,
+			calleeDisplayName: UnsafeMutablePointer<Int8>!,
+			callee: UnsafeMutablePointer<Int8>!,
+			audioCodecs: UnsafeMutablePointer<Int8>!,
+			videoCodecs: UnsafeMutablePointer<Int8>!,
+			existsAudio: Bool,
+			existsVideo: Bool) {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+
+		let session = manager.addSession(
+				id: sessionId,
+				type: .incoming,
+				callerDisplayName: string(from: callerDisplayName),
+				caller: string(from: caller),
+				calleeDisplayName: string(from: calleeDisplayName),
+				callee: string(from: callee),
+				includesAudio: existsAudio,
+				includesVideo: existsVideo)
+
+		let userInfo: [String: Any] = [
+				SIPNotification.Call.Key.session: session
+		]
+
+		NotificationCenter.default.post(
+				name: SIPNotification.Call.incoming,
+				object: self,
+				userInfo: userInfo)
+	}
+
+	public func onInviteTrying(_ sessionId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			// WTF?
+			return
+		}
+		let userInfo: [String: Any] = [
+				SIPNotification.Call.Key.session: session
+		]
+
+		NotificationCenter.default.post(
+				name: SIPNotification.Call.outgoing,
+				object: self,
+				userInfo: userInfo)
+	}
+
+	public func onInviteSessionProgress(_ sessionId: Int, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsEarlyMedia: Bool, existsAudio: Bool, existsVideo: Bool) {
+	}
+
+	public func onInviteRinging(_ sessionId: Int, statusText: UnsafeMutablePointer<Int8>!, statusCode: Int32) {
+	}
+
+	public func onInviteAnswered(_ sessionId: Int, callerDisplayName: UnsafeMutablePointer<Int8>!, caller: UnsafeMutablePointer<Int8>!, calleeDisplayName: UnsafeMutablePointer<Int8>!, callee: UnsafeMutablePointer<Int8>!, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsAudio: Bool, existsVideo: Bool) {
+	}
+
+	public func onInviteFailure(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	}
+
+	public func onInviteUpdated(_ sessionId: Int, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsAudio: Bool, existsVideo: Bool) {
+	}
+
+	public func onInviteConnected(_ sessionId: Int) {
+	}
+
+	public func onInviteBeginingForward(_ forwardTo: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onInviteClosed(_ sessionId: Int) {
+	}
+
+	public func onRemoteHold(_ sessionId: Int) {
+	}
+
+	public func onRemoteUnHold(_ sessionId: Int, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsAudio: Bool, existsVideo: Bool) {
+	}
+
+	public func onReceivedRefer(_ sessionId: Int, referId: Int, to: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, referSipMessage: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onReferAccepted(_ sessionId: Int) {
+	}
+
+	public func onReferRejected(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	}
+
+	public func onTransferTrying(_ sessionId: Int) {
+	}
+
+	public func onTransferRinging(_ sessionId: Int) {
+	}
+
+	public func onACTVTransferSuccess(_ sessionId: Int) {
+	}
+
+	public func onACTVTransferFailure(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	}
+
+	public func onReceivedSignaling(_ sessionId: Int, message: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onSendingSignaling(_ sessionId: Int, message: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onWaitingVoiceMessage(_ messageAccount: UnsafeMutablePointer<Int8>!, urgentNewMessageCount: Int32, urgentOldMessageCount: Int32, newMessageCount: Int32, oldMessageCount: Int32) {
+	}
+
+	public func onWaitingFaxMessage(_ messageAccount: UnsafeMutablePointer<Int8>!, urgentNewMessageCount: Int32, urgentOldMessageCount: Int32, newMessageCount: Int32, oldMessageCount: Int32) {
+	}
+
+	public func onRecvDtmfTone(_ sessionId: Int, tone: Int32) {
+	}
+
+	public func onRecvOptions(_ optionsMessage: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onRecvInfo(_ infoMessage: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onPresenceRecvSubscribe(_ subscribeId: Int, fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, subject: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onPresenceOnline(_ fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, stateText: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onPresenceOffline(_ fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onRecvMessage(_ sessionId: Int, mimeType: UnsafeMutablePointer<Int8>!, subMimeType: UnsafeMutablePointer<Int8>!, messageData: UnsafeMutablePointer<UInt8>!, messageDataLength: Int32) {
+	}
+
+	public func onRecvOutOfDialogMessage(_ fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, toDisplayName: UnsafeMutablePointer<Int8>!, to: UnsafeMutablePointer<Int8>!, mimeType: UnsafeMutablePointer<Int8>!, subMimeType: UnsafeMutablePointer<Int8>!, messageData: UnsafeMutablePointer<UInt8>!, messageDataLength: Int32) {
+	}
+
+	public func onSendMessageSuccess(_ sessionId: Int, messageId: Int) {
+	}
+
+	public func onSendMessageFailure(_ sessionId: Int, messageId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	}
+
+	public func onSendOutOfDialogMessageSuccess(_ messageId: Int, fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, toDisplayName: UnsafeMutablePointer<Int8>!, to: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onSendOutOfDialogMessageFailure(_ messageId: Int, fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, toDisplayName: UnsafeMutablePointer<Int8>!, to: UnsafeMutablePointer<Int8>!, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	}
+
+	public func onPlayAudioFileFinished(_ sessionId: Int, fileName: UnsafeMutablePointer<Int8>!) {
+	}
+
+	public func onPlayVideoFileFinished(_ sessionId: Int) {
+	}
+
+	public func onReceivedRTPPacket(_ sessionId: Int, isAudio: Bool, rtpPacket RTPPacket: UnsafeMutablePointer<UInt8>!, packetSize: Int32) {
+	}
+
+	public func onSendingRTPPacket(_ sessionId: Int, isAudio: Bool, rtpPacket RTPPacket: UnsafeMutablePointer<UInt8>!, packetSize: Int32) {
+	}
+
+	public func onAudioRawCallback(_ sessionId: Int, audioCallbackMode: Int32, data: UnsafeMutablePointer<UInt8>!, dataLength: Int32, samplingFreqHz: Int32) {
+	}
+
+	public func onVideoRawCallback(_ sessionId: Int, videoCallbackMode: Int32, width: Int32, height: Int32, data: UnsafeMutablePointer<UInt8>!, dataLength: Int32) -> Int32 {
+		return 0
+	}
+
+	public func onVideoDecoderCallback(_ sessionId: Int, width: Int32, height: Int32, framerate: Int32, bitrate: Int32) {
 	}
 
 }
