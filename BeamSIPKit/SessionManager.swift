@@ -73,10 +73,10 @@ class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
 	}
 
 	let id: Int
-	let name: String
-	let number: String
-	let includesAudio: Bool
-	let includesVideo: Bool
+	var name: String
+	var number: String
+	var includesAudio: Bool
+	var includesVideo: Bool
 
 	var isOnHold: Bool = false {
 		didSet {
@@ -129,6 +129,10 @@ class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
 
 }
 
+public enum SIPSessionManagerError: Error {
+	case sessionAlreadyExists(withID: Int)
+}
+
 public protocol SIPSessionManager {
 
 	func makeCall(to number: String, sendSDP: Bool, videoCall: Bool) throws -> SIPSession
@@ -148,7 +152,7 @@ protocol MutableSIPSessionManager {
 			calleeDisplayName: String,
 			callee: String,
 			includesAudio: Bool,
-			includesVideo: Bool) -> SIPSession
+			includesVideo: Bool) throws -> SIPSession
 
 	func remove(_ session: SIPSession)
 }
@@ -184,8 +188,11 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 			calleeDisplayName: String,
 			callee: String,
 			includesAudio: Bool,
-			includesVideo: Bool) -> SIPSession {
-		let session = DefaultSIPSession(
+			includesVideo: Bool) throws -> SIPSession {
+		guard session(byID: id) == nil else {
+			throw SIPSessionManagerError.sessionAlreadyExists(withID: id)
+		}
+		let sipSession = DefaultSIPSession(
 				portSIPSDK: portSIPSDK,
 				id: id,
 				type: .incoming,
@@ -193,7 +200,38 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 				number: caller,
 				includesAudio: includesAudio,
 				includesVideo: includesVideo)
-		sessions.append(session)
+		sessions.append(sipSession)
+		return sipSession
+	}
+
+	func update(
+			session: SIPSession,
+			callerDisplayName: String,
+			caller: String,
+			calleeDisplayName: String,
+			callee: String,
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession {
+		guard var session = session as? DefaultSIPSession else {
+			// Do I care?
+			return session
+//			var newSession = addSession(
+//					id: session.id,
+//					type: session.type,
+//					callerDisplayName: callerDisplayName,
+//					caller: caller,
+//					calleeDisplayName: calleeDisplayName,
+//					callee: callee,
+//					includesAudio: includesAudio,
+//					includesVideo: includesVideo)
+//			return newSession
+		}
+
+		session.name = callerDisplayName
+		session.number = caller
+		session.includesAudio = includesAudio
+		session.includesVideo = includesVideo
+
 		return session
 	}
 

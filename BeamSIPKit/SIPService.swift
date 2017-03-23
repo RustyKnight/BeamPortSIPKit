@@ -506,28 +506,72 @@ extension DefaultSIPService: PortSIPEventDelegate {
 				userInfo: userInfo)
 	}
 
-	public func onInviteTrying(_ sessionId: Int) {
-		guard let session = sessionManager.session(byID: sessionId) else {
-			// WTF?
-			return
-		}
+	internal func post(name: Notification.Name, session: SIPSession) {
 		let userInfo: [String: Any] = [
 				SIPNotification.Call.Key.session: session
 		]
 
 		NotificationCenter.default.post(
-				name: SIPNotification.Call.outgoing,
+				name: name,
 				object: self,
 				userInfo: userInfo)
 	}
 
-	public func onInviteSessionProgress(_ sessionId: Int, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsEarlyMedia: Bool, existsAudio: Bool, existsVideo: Bool) {
+	// Out going call is been processed
+	public func onInviteTrying(_ sessionId: Int) {
+		// The session should already exist, otherwise people are doing the wrong thing
+		guard let session = sessionManager.session(byID: sessionId) else {
+			// WTF?
+			return
+		}
+		post(name: SIPNotification.Call.outgoing, session: session)
 	}
 
-	public func onInviteRinging(_ sessionId: Int, statusText: UnsafeMutablePointer<Int8>!, statusCode: Int32) {
+	// Session in progress
+	public func onInviteSessionProgress(_ sessionId: Int,
+	                                    audioCodecs: UnsafeMutablePointer<Int8>!,
+	                                    videoCodecs: UnsafeMutablePointer<Int8>!,
+	                                    existsEarlyMedia: Bool,
+	                                    existsAudio: Bool,
+	                                    existsVideo: Bool) {
+
+		let audioList = string(from: audioCodecs)
+		let videoList = string(from: videoCodecs)
+
+		guard let session = sessionManager.session(byID: sessionId) else {
+			// WTF?
+			return
+		}
+		post(name: SIPNotification.Call.progress, session: session)
 	}
 
-	public func onInviteAnswered(_ sessionId: Int, callerDisplayName: UnsafeMutablePointer<Int8>!, caller: UnsafeMutablePointer<Int8>!, calleeDisplayName: UnsafeMutablePointer<Int8>!, callee: UnsafeMutablePointer<Int8>!, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsAudio: Bool, existsVideo: Bool) {
+	// Outgoing call is ringing
+	public func onInviteRinging(_ sessionId: Int,
+	                            statusText: UnsafeMutablePointer<Int8>!,
+	                            statusCode: Int32) {
+		let status = string(from: statusText)
+		guard let session = sessionManager.session(byID: sessionId) else {
+			// WTF?
+			return
+		}
+		post(name: SIPNotification.Call.outgoingRinging, session: session)
+	}
+
+	// Remote party is answering the call
+	public func onInviteAnswered(_ sessionId: Int,
+	                             callerDisplayName: UnsafeMutablePointer<Int8>!,
+	                             caller: UnsafeMutablePointer<Int8>!,
+	                             calleeDisplayName: UnsafeMutablePointer<Int8>!,
+	                             callee: UnsafeMutablePointer<Int8>!,
+	                             audioCodecs: UnsafeMutablePointer<Int8>!,
+	                             videoCodecs: UnsafeMutablePointer<Int8>!,
+	                             existsAudio: Bool,
+	                             existsVideo: Bool) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			// WTF?
+			return
+		}
+		post(name: SIPNotification.Call.outgoingRinging, session: session)
 	}
 
 	public func onInviteFailure(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
