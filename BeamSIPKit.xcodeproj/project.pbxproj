@@ -7,13 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		12AB35771EE7795E00919C7C /* PortSIPLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 12AB35761EE7795E00919C7C /* PortSIPLib.framework */; };
 		3ED4A747B7470593FDAF16E0 /* SIPNICManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A574925170B661B21BEF /* SIPNICManager.swift */; };
 		3ED4A8ACF2D81C884EAFC30A /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A71B504772124C9870E0 /* SessionManager.swift */; };
 		3ED4AA6E2661648E0D1A21D8 /* CodecManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A30A86E428B9B27D5D42 /* CodecManager.swift */; };
 		5A682A1EBC46CEAA5A34F4E2 /* Types.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6823D8DD49B540F529FD06 /* Types.swift */; };
 		7004733B1E661AE500940807 /* BeamSIPKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 700473311E661AE500940807 /* BeamSIPKit.framework */; };
 		700473401E661AE500940807 /* BeamSIPKitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7004733F1E661AE500940807 /* BeamSIPKitTests.swift */; };
-		7004734D1E661B4200940807 /* PortSIPLib.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7004734C1E661B4200940807 /* PortSIPLib.framework */; };
 		7004734F1E661B5800940807 /* CoreAudio.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7004734E1E661B5800940807 /* CoreAudio.framework */; };
 		700473511E661B6100940807 /* VideoToolbox.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 700473501E661B6100940807 /* VideoToolbox.framework */; };
 		700473531E661B6A00940807 /* libresolv.tbd in Frameworks */ = {isa = PBXBuildFile; fileRef = 700473521E661B6A00940807 /* libresolv.tbd */; };
@@ -33,6 +33,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		12AB35761EE7795E00919C7C /* PortSIPLib.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PortSIPLib.framework; path = lib/PortSIPLib.framework; sourceTree = "<group>"; };
 		3ED4A30A86E428B9B27D5D42 /* CodecManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CodecManager.swift; sourceTree = "<group>"; };
 		3ED4A574925170B661B21BEF /* SIPNICManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SIPNICManager.swift; sourceTree = "<group>"; };
 		3ED4A71B504772124C9870E0 /* SessionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
@@ -42,7 +43,6 @@
 		7004733A1E661AE500940807 /* BeamSIPKitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BeamSIPKitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		7004733F1E661AE500940807 /* BeamSIPKitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BeamSIPKitTests.swift; sourceTree = "<group>"; };
 		700473411E661AE500940807 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		7004734C1E661B4200940807 /* PortSIPLib.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PortSIPLib.framework; path = lib/PortSIPLib.framework; sourceTree = "<group>"; };
 		7004734E1E661B5800940807 /* CoreAudio.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreAudio.framework; path = System/Library/Frameworks/CoreAudio.framework; sourceTree = SDKROOT; };
 		700473501E661B6100940807 /* VideoToolbox.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = VideoToolbox.framework; path = System/Library/Frameworks/VideoToolbox.framework; sourceTree = SDKROOT; };
 		700473521E661B6A00940807 /* libresolv.tbd */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.text-based-dylib-definition"; name = libresolv.tbd; path = usr/lib/libresolv.tbd; sourceTree = SDKROOT; };
@@ -57,10 +57,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				700473551E661B7300940807 /* libstdc++.6.tbd in Frameworks */,
+				12AB35771EE7795E00919C7C /* PortSIPLib.framework in Frameworks */,
 				700473531E661B6A00940807 /* libresolv.tbd in Frameworks */,
 				700473511E661B6100940807 /* VideoToolbox.framework in Frameworks */,
 				7004734F1E661B5800940807 /* CoreAudio.framework in Frameworks */,
-				7004734D1E661B4200940807 /* PortSIPLib.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -120,11 +120,11 @@
 		7004734B1E661B4200940807 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				12AB35761EE7795E00919C7C /* PortSIPLib.framework */,
 				700473541E661B7300940807 /* libstdc++.6.tbd */,
 				700473521E661B6A00940807 /* libresolv.tbd */,
 				700473501E661B6100940807 /* VideoToolbox.framework */,
 				7004734E1E661B5800940807 /* CoreAudio.framework */,
-				7004734C1E661B4200940807 /* PortSIPLib.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -383,6 +383,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/lib",
+					"$(PROJECT_DIR)/frameworks",
 				);
 				HEADER_SEARCH_PATHS = "lib/**";
 				INFOPLIST_FILE = BeamSIPKit/Info.plist;
@@ -412,6 +413,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/lib",
+					"$(PROJECT_DIR)/frameworks",
 				);
 				HEADER_SEARCH_PATHS = "lib/**";
 				INFOPLIST_FILE = BeamSIPKit/Info.plist;

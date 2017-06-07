@@ -141,6 +141,19 @@ public protocol SIPSessionManager {
 	var count: Int { get }
 	var sessions: [SIPSession] { get }
 
+	func update(
+			session: SIPSession,
+			callerDisplayName: String,
+			caller: String,
+			calleeDisplayName: String,
+			callee: String,
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession
+
+	func update(
+			session: SIPSession,
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession
 }
 
 protocol MutableSIPSessionManager {
@@ -212,7 +225,7 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 			callee: String,
 			includesAudio: Bool,
 			includesVideo: Bool) -> SIPSession {
-		guard var session = session as? DefaultSIPSession else {
+		guard var sessionValue = session as? DefaultSIPSession else {
 			// Do I care?
 			return session
 //			var newSession = addSession(
@@ -227,12 +240,12 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 //			return newSession
 		}
 
-		session.name = callerDisplayName
-		session.number = caller
-		session.includesAudio = includesAudio
-		session.includesVideo = includesVideo
+		sessionValue.name = callerDisplayName
+		sessionValue.number = caller
+		sessionValue.includesAudio = includesAudio
+		sessionValue.includesVideo = includesVideo
 
-		return session
+		return sessionValue
 	}
 
 	func remove(_ session: SIPSession) {
