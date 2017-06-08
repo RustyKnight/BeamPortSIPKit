@@ -8,10 +8,10 @@ import PortSIPLib
 
 public enum SIPSessionStatus {
 	case none
-	case outgoingInvite
-	case incomingInvite
-	case outgoingActive
-	case incomingActive
+	case active
+	case inactive
+	case onHold
+	case ringing
 }
 
 public enum DTMFTone: Int32 {
@@ -41,12 +41,18 @@ public enum SIPSessionType {
 
 public protocol SIPSession {
 	var type: SIPSessionType { get }
+	var status: SIPSessionStatus { get }
 	var timeOfCall: Date? { get }
 	var durationOfCall: TimeInterval { get }
-	var name: String { get }
-	var number: String { get }
+	var callerName: String { get }
+	var callerNumber: String { get }
+	var calleeName: String { get }
+	var calleeNumber: String { get }
 	var isOnHold: Bool { get set }
 	var id: Int { get }
+
+	var audioCodecs: [SIPAudioCodec] {get}
+	var videoCodecs: [SIPVideoCodec] {get}
 
 	func send(_ tone: DTMFTone)
 
@@ -66,6 +72,7 @@ public protocol SIPSession {
 
 class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
 
+	var status: SIPSessionStatus
 	let type: SIPSessionType
 	var timeOfCall: Date?
 	var durationOfCall: TimeInterval {
@@ -73,10 +80,16 @@ class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
 	}
 
 	let id: Int
-	var name: String
-	var number: String
+	var callerName: String
+	var callerNumber: String
+	var calleeName: String
+	var calleeNumber: String
 	var includesAudio: Bool
 	var includesVideo: Bool
+	var includesEarlyMedia: Bool = false
+
+	var audioCodecs: [SIPAudioCodec] = []
+	var videoCodecs: [SIPVideoCodec] = []
 
 	var isOnHold: Bool = false {
 		didSet {
@@ -88,13 +101,30 @@ class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
 		}
 	}
 
-	init(portSIPSDK: PortSIPSDK, id: Int, type: SIPSessionType, name: String, number: String, includesAudio: Bool, includesVideo: Bool) {
+	init(
+			portSIPSDK: PortSIPSDK,
+			id: Int,
+			type: SIPSessionType,
+			status: SIPSessionStatus,
+			callerName: String,
+			callerNumber: String,
+			calleeName: String,
+			calleeNumber: String,
+			audioCodes: [SIPAudioCodec],
+			videoCodes: [SIPVideoCodec],
+			includesAudio: Bool,
+			includesVideo: Bool) {
 		self.id = id
 		self.type = type
-		self.number = number
+		self.callerName = callerName
+		self.callerNumber = callerNumber
+		self.calleeName = calleeName
+		self.calleeNumber = calleeNumber
 		self.includesAudio = includesAudio
 		self.includesVideo = includesVideo
-		self.name = name
+		self.audioCodecs = audioCodes
+		self.videoCodecs = videoCodes
+		self.status = status
 		super.init(portSIPSDK: portSIPSDK)
 	}
 
@@ -141,33 +171,57 @@ public protocol SIPSessionManager {
 	var count: Int { get }
 	var sessions: [SIPSession] { get }
 
-	func update(
-			session: SIPSession,
-			callerDisplayName: String,
-			caller: String,
-			calleeDisplayName: String,
-			callee: String,
-			includesAudio: Bool,
-			includesVideo: Bool) -> SIPSession
-
-	func update(
-			session: SIPSession,
-			includesAudio: Bool,
-			includesVideo: Bool) -> SIPSession
 }
 
-protocol MutableSIPSessionManager {
+protocol MutableSIPSessionManager: SIPSessionManager {
 	func addSession(
 			id: Int,
 			type: SIPSessionType,
+			status: SIPSessionStatus,
 			callerDisplayName: String,
 			caller: String,
 			calleeDisplayName: String,
 			callee: String,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
 			includesAudio: Bool,
 			includesVideo: Bool) throws -> SIPSession
 
 	func remove(_ session: SIPSession)
+
+	@discardableResult
+	func update(
+			session: SIPSession,
+			callerDisplayName: String,
+			caller: String,
+			calleeDisplayName: String,
+			callee: String,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession
+
+	@discardableResult
+	func update(
+			session: SIPSession,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
+			includesEarlyMedia: Bool,
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession
+
+	@discardableResult
+	func update(
+			session: SIPSession,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession
+
+	@discardableResult
+	func update(
+			session: SIPSession,
+			status: SIPSessionStatus) -> SIPSession
 }
 
 class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, MutableSIPSessionManager {
@@ -178,7 +232,19 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 
 	func makeCall(to number: String, sendSDP: Bool, videoCall: Bool) throws -> SIPSession {
 		let id = portSIPSDK.call(number, sendSdp: sendSDP, videoCall: videoCall)
-		fatalError("Not yet implemented")
+
+		return try addSession(
+				id: id,
+				type: .outgoing,
+				status: .ringing,
+				callerDisplayName: "",
+				caller: "",
+				calleeDisplayName: "",
+				callee: "",
+				audioCodecs: [],
+				videoCodecs: [],
+				includesAudio: false,
+				includesVideo: videoCall)
 	}
 
 	func session(byID: Int) -> SIPSession? {
@@ -196,10 +262,13 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 	func addSession(
 			id: Int,
 			type: SIPSessionType,
+			status: SIPSessionStatus,
 			callerDisplayName: String,
 			caller: String,
 			calleeDisplayName: String,
 			callee: String,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
 			includesAudio: Bool,
 			includesVideo: Bool) throws -> SIPSession {
 		guard session(byID: id) == nil else {
@@ -209,43 +278,100 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 				portSIPSDK: portSIPSDK,
 				id: id,
 				type: .incoming,
-				name: callerDisplayName,
-				number: caller,
+				status: status,
+				callerName: callerDisplayName,
+				callerNumber: caller,
+				calleeName: calleeDisplayName,
+				calleeNumber: callee,
+				audioCodes: audioCodecs,
+				videoCodes: videoCodecs,
 				includesAudio: includesAudio,
 				includesVideo: includesVideo)
 		sessions.append(sipSession)
 		return sipSession
 	}
 
+	@discardableResult
 	func update(
 			session: SIPSession,
 			callerDisplayName: String,
 			caller: String,
 			calleeDisplayName: String,
 			callee: String,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
 			includesAudio: Bool,
 			includesVideo: Bool) -> SIPSession {
-		guard var sessionValue = session as? DefaultSIPSession else {
+		guard let sessionValue = session as? DefaultSIPSession else {
 			// Do I care?
 			return session
-//			var newSession = addSession(
-//					id: session.id,
-//					type: session.type,
-//					callerDisplayName: callerDisplayName,
-//					caller: caller,
-//					calleeDisplayName: calleeDisplayName,
-//					callee: callee,
-//					includesAudio: includesAudio,
-//					includesVideo: includesVideo)
-//			return newSession
 		}
 
-		sessionValue.name = callerDisplayName
-		sessionValue.number = caller
+		sessionValue.callerName = callerDisplayName
+		sessionValue.callerNumber = caller
+		sessionValue.calleeName = calleeDisplayName
+		sessionValue.calleeNumber = callee
 		sessionValue.includesAudio = includesAudio
 		sessionValue.includesVideo = includesVideo
+		sessionValue.audioCodecs = audioCodecs
+		sessionValue.videoCodecs = videoCodecs
 
 		return sessionValue
+	}
+
+	@discardableResult
+	func update(
+			session: SIPSession,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
+			includesEarlyMedia: Bool,
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession {
+
+		update(
+				session: session,
+				audioCodecs: audioCodecs,
+				videoCodecs: videoCodecs,
+				includesAudio: includesAudio,
+				includesVideo: includesVideo)
+		guard let sessionValue = session as? DefaultSIPSession else {
+			// Do I care?
+			return session
+		}
+
+		sessionValue.includesEarlyMedia = includesEarlyMedia
+
+		return sessionValue
+	}
+
+	@discardableResult
+	func update(
+			session: SIPSession,
+			audioCodecs: [SIPAudioCodec],
+			videoCodecs: [SIPVideoCodec],
+			includesAudio: Bool,
+			includesVideo: Bool) -> SIPSession {
+		guard let sessionValue = session as? DefaultSIPSession else {
+			// Do I care?
+			return session
+		}
+
+		sessionValue.includesAudio = includesAudio
+		sessionValue.includesVideo = includesVideo
+		sessionValue.audioCodecs = audioCodecs
+		sessionValue.videoCodecs = videoCodecs
+
+		return sessionValue
+	}
+
+	@discardableResult
+	func update(session: SIPSession, status: SIPSessionStatus) -> SIPSession {
+		guard let sessionValue = session as? DefaultSIPSession else {
+			// Do I care?
+			return session
+		}
+		sessionValue.status = status
+		return session
 	}
 
 	func remove(_ session: SIPSession) {
@@ -255,6 +381,5 @@ class DefaultSIPSessionManager: DefaultSIPSupportManager, SIPSessionManager, Mut
 		}
 		sessions.remove(at: index)
 	}
-
 
 }

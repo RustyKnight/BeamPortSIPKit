@@ -45,6 +45,7 @@ public struct SIPNotification {
 		public struct Key {
 			public static let session = "SIP.call.session"
 			public static let error = "SIP.call.error"
+			public static let reason = "SIP.call.reason"
 		}
 	}
 
@@ -65,6 +66,11 @@ public struct SIPNotification {
 		public static let transferRinging = Notification.Name("SIP.refer.transferRinging")
 		public static let success = Notification.Name("SIP.refer.success")
 		public static let failure = Notification.Name("SIP.refer.failure")
+
+		public struct Key {
+			public static let referral = "SIP.refer.referral"
+			public static let reason = "SIP.refer.reason"
+		}
 	}
 
 	// Messaging?
@@ -72,6 +78,9 @@ public struct SIPNotification {
 	public struct Signaling {
 		public static let received = Notification.Name("SIP.signaling.received")
 		public static let sending = Notification.Name("SIP.signaling.sending")
+		public struct Key {
+			public static let message = "SIP.signaling.message"
+		}
 	}
 
 	// MWI
@@ -79,24 +88,39 @@ public struct SIPNotification {
 	public struct MessageWaitingIndicator {
 		public static let voiceMessage = Notification.Name("SIP.mwi.voice")
 		public static let faxMessage = Notification.Name("SIP.mwi.fax")
+		public struct Key {
+			public static let status = "SIP.mwi.status"
+		}
 	}
 
 	public struct DTMF {
 		public static let received = Notification.Name("SIP.dtmf.received")
+		public struct Key {
+			public static let tone = "SIP.dtmf.code"
+		}
 	}
 
 	public struct Info {
 		public static let received = Notification.Name("SIP.info.received")
+		public struct Key {
+			public static let message = "SIP.info.message"
+		}
 	}
 
 	public struct Options {
 		public static let received = Notification.Name("SIP.options.received")
+		public struct Key {
+			public static let message = "SIP.options.message"
+		}
 	}
 
 	public struct Presence {
 		public static let receivedSubscription = Notification.Name("SIP.presence.receivedSubscription")
 		public static let online = Notification.Name("SIP.presence.online")
 		public static let offline = Notification.Name("SIP.presence.offline")
+		public struct Key {
+			public static let message = "SIP.presence.message"
+		}
 	}
 
 	public struct Message {
@@ -106,21 +130,38 @@ public struct SIPNotification {
 		public static let sendFailure = Notification.Name("SIP.message.sendFailure")
 		public static let sendOutOfDialogSuccess = Notification.Name("SIP.message.sendOutOfDialogSuccess")
 		public static let sendOutOfDialogFailure = Notification.Name("SIP.message.sendOutOfDialogFailure")
+
+		struct Key {
+			public static let status = "SIP.message.status"
+			public static let id = "SIP.message.id"
+			public static let message = "SIP.message.message"
+			public static let reason = "SIP.message.reason"
+		}
 	}
 
 	public struct Play {
 		public static let audioFileFinished = Notification.Name("SIP.play.audioFileFinished")
 		public static let videoFileFinished = Notification.Name("SIP.play.videoFileFinished")
+		struct Key {
+			public static let fileName = "SIP.play.fileName"
+		}
 	}
 
 	public struct RTP {
 		public static let received = Notification.Name("SIP.rtp.audioFileFinished")
 		public static let sending = Notification.Name("SIP.rtp.videoFileFinished")
+		struct Key {
+			public static let data = "SIP.rtp.data"
+		}
 	}
 
 	public struct Stream {
 		public static let audio = Notification.Name("SIP.stream.audio")
 		public static let video = Notification.Name("SIP.stream.video")
+		public static let videoDecoded = Notification.Name("SIP.stream.videoDecoded")
+		struct Key {
+			public static let videoInfo = "SIP.stream.videoInfo"
+		}
 	}
 
 }
@@ -180,7 +221,7 @@ public struct DefaultLocalServer: SIPServer {
 	public let address: String
 	public let port: Int32
 
-	public init(address: String = "0.0.0.0", port: Int32 = ((10000 + Int(arc4random())) % 1000)) {
+	public init(address: String = "0.0.0.0", port: Int32 = (Int32(10000 + arc4random()) % 1000)) {
 		self.address = address
 		self.port = port
 	}
@@ -270,6 +311,16 @@ public enum SIPError: Error {
 	case apiCallFailedWith(code: Int32)
 	case notInitialisedYet
 
+}
+
+public protocol SIPReason {
+	var reason: String {get}
+	var code: Int32 {get}
+}
+
+struct DefaultSIPReason: SIPReason {
+	let reason: String
+	let code: Int32
 }
 
 protocol SIPSupportManager {
@@ -452,6 +503,26 @@ extension DefaultSIPService: PortSIPEventDelegate {
 		return String.init(validatingUTF8: text)!
 	}
 
+	func audioCodecsFrom(_ text: UnsafeMutablePointer<Int8>!) -> [SIPAudioCodec] {
+		let items = string(from: text)
+		return audioCodecsFrom(items)
+	}
+
+	func audioCodecsFrom(_ text: String) -> [SIPAudioCodec] {
+		let items = text.characters.split(separator: "#").map(String.init)
+		return SIPAudioCodec.from(items)
+	}
+
+	func videoCodecsFrom(_ text: UnsafeMutablePointer<Int8>!) -> [SIPVideoCodec] {
+		let items = string(from: text)
+		return videoCodecsFrom(items)
+	}
+
+	func videoCodecsFrom(_ text: String) -> [SIPVideoCodec] {
+		let items = text.characters.split(separator: "#").map(String.init)
+		return SIPVideoCodec.from(items)
+	}
+
 	func notify(_ status: SIPRegistrationStatus, with name: NSNotification.Name) {
 		let userInfo: [String: Any] = [
 			SIPNotification.Register.Key.status: status
@@ -493,14 +564,20 @@ extension DefaultSIPService: PortSIPEventDelegate {
 			return
 		}
 
+		let audioCodecItems = audioCodecsFrom(audioCodecs)
+		let videoCodecItems = videoCodecsFrom(videoCodecs)
+
 		do {
 			let session = try manager.addSession(
 					id: sessionId,
 					type: .incoming,
+					status: .ringing,
 					callerDisplayName: string(from: callerDisplayName),
 					caller: string(from: caller),
 					calleeDisplayName: string(from: calleeDisplayName),
 					callee: string(from: callee),
+					audioCodecs: audioCodecItems,
+					videoCodecs: videoCodecItems,
 					includesAudio: existsAudio,
 					includesVideo: existsVideo)
 
@@ -523,10 +600,21 @@ extension DefaultSIPService: PortSIPEventDelegate {
 		}
 	}
 
-	internal func post(name: Notification.Name, session: SIPSession) {
-		let userInfo: [String: Any] = [
-			SIPNotification.Call.Key.session: session
-		]
+	internal func post(
+			name: Notification.Name,
+			session: SIPSession? = nil,
+			info: [String: Any]? = nil) {
+
+		var userInfo: [String: Any] = [:]
+
+		if let session = session {
+			userInfo[SIPNotification.Call.Key.session] = session
+		}
+		if let info = info {
+			for value in info {
+				userInfo[value.key] = value.value
+			}
+		}
 
 		NotificationCenter.default.post(
 				name: name,
@@ -541,73 +629,97 @@ extension DefaultSIPService: PortSIPEventDelegate {
 			// WTF?
 			return
 		}
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		manager.update(session: session, status: .ringing)
 		post(name: SIPNotification.Call.outgoing, session: session)
 	}
 
 	// Session in progress
-	public func onInviteSessionProgress(_ sessionId: Int,
-	                                    audioCodecs: UnsafeMutablePointer<Int8>!,
-	                                    videoCodecs: UnsafeMutablePointer<Int8>!,
-	                                    existsEarlyMedia: Bool,
-	                                    existsAudio: Bool,
-	                                    existsVideo: Bool) {
-
-		let audioList = string(from: audioCodecs)
-		let videoList = string(from: videoCodecs)
+	public func onInviteSessionProgress(
+			_ sessionId: Int,
+			audioCodecs: UnsafeMutablePointer<Int8>!,
+			videoCodecs: UnsafeMutablePointer<Int8>!,
+			existsEarlyMedia: Bool,
+			existsAudio: Bool,
+			existsVideo: Bool) {
 
 		guard let session = sessionManager.session(byID: sessionId) else {
 			// WTF?
 			return
 		}
-		let audioCodecsItems = audioList.characters.split(separator: "#").map(String.init)
-		let videoCodecsItems = videoList.characters.split(separator: "#").map(String.init)
-		sessionManager.update(
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+
+		let audioList = audioCodecsFrom(audioCodecs)
+		let videoList = videoCodecsFrom(videoCodecs)
+
+		manager.update(
 				session: session,
-				audioCodecs: audioCodecsItems,
-				videoCodecs: videoCodecsItems,
-				existsEarlyMedia: existsEarlyMedia,
+				audioCodecs: audioList,
+				videoCodecs: videoList,
+				includesEarlyMedia: existsEarlyMedia,
 				includesAudio: existsAudio,
-				includesVideo: existsVideo)
+				includesVideo: existsAudio)
+
 		post(name: SIPNotification.Call.progress, session: session)
 	}
 
 	// Outgoing call is ringing
-	public func onInviteRinging(_ sessionId: Int,
-	                            statusText: UnsafeMutablePointer<Int8>!,
-	                            statusCode: Int32) {
-		let status = string(from: statusText)
+	public func onInviteRinging(
+			_ sessionId: Int,
+			statusText: UnsafeMutablePointer<Int8>!,
+			statusCode: Int32) {
 		guard let session = sessionManager.session(byID: sessionId) else {
 			// WTF?
 			return
 		}
-		post(name: SIPNotification.Call.outgoingRinging, session: session)
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		manager.update(session: session, status: .ringing)
+		let status = string(from: statusText)
+		let reason = DefaultSIPReason(reason: status, code: statusCode)
+		let statusInfo: [String: Any] = [
+			SIPNotification.Call.Key.reason: reason,
+		]
+		post(
+				name: SIPNotification.Call.outgoingRinging,
+				session: session,
+				info: [SIPNotification.Call.Key.session: statusInfo])
 	}
 
 	// Remote party is answering the call
-	public func onInviteAnswered(_ sessionId: Int,
-	                             callerDisplayName: UnsafeMutablePointer<Int8>!,
-	                             caller: UnsafeMutablePointer<Int8>!,
-	                             calleeDisplayName: UnsafeMutablePointer<Int8>!,
-	                             callee: UnsafeMutablePointer<Int8>!,
-	                             audioCodecs: UnsafeMutablePointer<Int8>!,
-	                             videoCodecs: UnsafeMutablePointer<Int8>!,
-	                             existsAudio: Bool,
-	                             existsVideo: Bool) {
+	public func onInviteAnswered(
+			_ sessionId: Int,
+			callerDisplayName: UnsafeMutablePointer<Int8>!,
+			caller: UnsafeMutablePointer<Int8>!,
+			calleeDisplayName: UnsafeMutablePointer<Int8>!,
+			callee: UnsafeMutablePointer<Int8>!,
+			audioCodecs: UnsafeMutablePointer<Int8>!,
+			videoCodecs: UnsafeMutablePointer<Int8>!,
+			existsAudio: Bool,
+			existsVideo: Bool) {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
 		guard let session = sessionManager.session(byID: sessionId) else {
 			// WTF?
 			return
 		}
-		if let manager = sessionManager as? DefaultSIPSessionManager {
-			manager.update(
-					session: session,
-					callerDisplayName: string(from: callerDisplayName),
-					caller: string(from: caller),
-					calleeDisplayName: string(from: calleeDisplayName),
-					callee: string(from: callee),
-					includesAudio: existsAudio,
-					includesVideo: existsVideo)
-		}
-		post(name: SIPNotification.Call.outgoingRinging, session: session)
+		manager.update(
+				session: session,
+				callerDisplayName: string(from: callerDisplayName),
+				caller: string(from: caller),
+				calleeDisplayName: string(from: calleeDisplayName),
+				callee: string(from: callee),
+				audioCodecs: audioCodecsFrom(audioCodecs),
+				videoCodecs: videoCodecsFrom(videoCodecs),
+				includesAudio: existsAudio,
+				includesVideo: existsVideo)
+		post(name: SIPNotification.Call.answered, session: session)
 	}
 
 	public func onInviteFailure(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
@@ -615,7 +727,10 @@ extension DefaultSIPService: PortSIPEventDelegate {
 			// WTF?
 			return
 		}
-		post(name: SIPNotification.Call.failed, session: session)
+		let info: [String: Any] = [
+			SIPNotification.Call.Key.reason: DefaultSIPReason(reason: string(from: reason), code: code)
+		]
+		post(name: SIPNotification.Call.failed, session: session, info: info)
 	}
 
 	public func onInviteUpdated(
@@ -628,123 +743,493 @@ extension DefaultSIPService: PortSIPEventDelegate {
 			// WTF?
 			return
 		}
-		guard let manager = sessionManager as? DefaultSIPSessionManager else {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
 			return
 		}
 		manager.update(
 				session: session,
-				callerDisplayName: string(from: callerDisplayName),
-				caller: string(from: caller),
-				calleeDisplayName: string(from: calleeDisplayName),
-				callee: string(from: callee),
+				audioCodecs: audioCodecsFrom(audioCodecs),
+				videoCodecs: videoCodecsFrom(videoCodecs),
 				includesAudio: existsAudio,
 				includesVideo: existsVideo)
+		post(name: SIPNotification.Call.updated, session: session)
 	}
 
 	public func onInviteConnected(_ sessionId: Int) {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		guard let session = sessionManager.session(byID: sessionId) else {
+			// WTF?
+			return
+		}
+		manager.update(session: session, status: .active)
+		post(name: SIPNotification.Call.connected, session: session)
 	}
 
 	public func onInviteBeginingForward(_ forwardTo: UnsafeMutablePointer<Int8>!) {
+		post(name: SIPNotification.Call.beginningForward)
 	}
 
 	public func onInviteClosed(_ sessionId: Int) {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		manager.update(session: session, status: SIPSessionStatus.inactive)
+		manager.remove(session)
+		post(name: SIPNotification.Call.closed, session: session)
 	}
 
 	public func onRemoteHold(_ sessionId: Int) {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		manager.update(session: session, status: SIPSessionStatus.onHold)
+		post(name: SIPNotification.Call.remoteHold, session: session)
 	}
 
 	public func onRemoteUnHold(_ sessionId: Int, audioCodecs: UnsafeMutablePointer<Int8>!, videoCodecs: UnsafeMutablePointer<Int8>!, existsAudio: Bool, existsVideo: Bool) {
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		manager.update(session: session, status: SIPSessionStatus.active)
+		post(name: SIPNotification.Call.remoteUnHold, session: session)
 	}
 
-	public func onReceivedRefer(_ sessionId: Int, referId: Int, to: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, referSipMessage: UnsafeMutablePointer<Int8>!) {
+	public func onReceivedRefer(
+			_ sessionId: Int,
+			referId: Int,
+			to: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!,
+			referSipMessage: UnsafeMutablePointer<Int8>!) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.Refer.Key.referral:
+			DefaultSIPReferral(
+					id: referId,
+					to: string(from: to),
+					from: string(from: from),
+					message: string(from: referSipMessage))
+		]
+		post(name: SIPNotification.Refer.received, session: session, info: info)
 	}
 
 	public func onReferAccepted(_ sessionId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		post(name: SIPNotification.Refer.accepted, session: session)
 	}
 
 	public func onReferRejected(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.Refer.Key.reason: DefaultSIPReason(reason: string(from: reason), code: code)
+		]
+		post(name: SIPNotification.Refer.accepted, session: session, info: info)
 	}
 
 	public func onTransferTrying(_ sessionId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		manager.update(session: session, status: .ringing)
+		post(name: SIPNotification.Refer.transferTrying, session: session)
 	}
 
 	public func onTransferRinging(_ sessionId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		manager.update(session: session, status: .ringing)
+		post(name: SIPNotification.Refer.transferRinging, session: session)
 	}
 
 	public func onACTVTransferSuccess(_ sessionId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		manager.update(session: session, status: .active)
+		post(name: SIPNotification.Refer.success, session: session)
 	}
 
 	public func onACTVTransferFailure(_ sessionId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		guard let manager = sessionManager as? MutableSIPSessionManager else {
+			return
+		}
+		manager.update(session: session, status: .active) //?
+		let info: [String: Any] = [
+			SIPNotification.Refer.Key.reason: DefaultSIPReason(reason: string(from: reason), code: code)
+		]
+		post(name: SIPNotification.Refer.failure, session: session, info: info)
 	}
 
 	public func onReceivedSignaling(_ sessionId: Int, message: UnsafeMutablePointer<Int8>!) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.Signaling.Key.message: string(from: message)
+		]
+		post(name: SIPNotification.Signaling.received, session: session, info: info)
 	}
 
 	public func onSendingSignaling(_ sessionId: Int, message: UnsafeMutablePointer<Int8>!) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.Signaling.Key.message: string(from: message)
+		]
+		post(name: SIPNotification.Signaling.sending, session: session, info: info)
 	}
 
-	public func onWaitingVoiceMessage(_ messageAccount: UnsafeMutablePointer<Int8>!, urgentNewMessageCount: Int32, urgentOldMessageCount: Int32, newMessageCount: Int32, oldMessageCount: Int32) {
+	public func onWaitingVoiceMessage(
+			_ messageAccount: UnsafeMutablePointer<Int8>!,
+			urgentNewMessageCount: Int32,
+			urgentOldMessageCount: Int32,
+			newMessageCount: Int32,
+			oldMessageCount: Int32) {
+		let message = DefaultSIPWaitingMessage(
+				messageAccount: string(from: messageAccount),
+				urgentNewMessageCount: urgentNewMessageCount,
+				urgentOldMessageCount: urgentOldMessageCount,
+				newMessageCount: newMessageCount,
+				oldMessageCount: oldMessageCount)
+		let info: [String: Any] = [
+			SIPNotification.MessageWaitingIndicator.Key.status: message
+		]
+		post(name: SIPNotification.MessageWaitingIndicator.voiceMessage, info: info)
 	}
 
-	public func onWaitingFaxMessage(_ messageAccount: UnsafeMutablePointer<Int8>!, urgentNewMessageCount: Int32, urgentOldMessageCount: Int32, newMessageCount: Int32, oldMessageCount: Int32) {
+	public func onWaitingFaxMessage(
+			_ messageAccount: UnsafeMutablePointer<Int8>!,
+			urgentNewMessageCount: Int32,
+			urgentOldMessageCount: Int32,
+			newMessageCount: Int32,
+			oldMessageCount: Int32) {
+		let message = DefaultSIPWaitingMessage(
+				messageAccount: string(from: messageAccount),
+				urgentNewMessageCount: urgentNewMessageCount,
+				urgentOldMessageCount: urgentOldMessageCount,
+				newMessageCount: newMessageCount,
+				oldMessageCount: oldMessageCount)
+		let info: [String: Any] = [
+			SIPNotification.MessageWaitingIndicator.Key.status: message
+		]
+		post(name: SIPNotification.MessageWaitingIndicator.faxMessage, info: info)
 	}
 
 	public func onRecvDtmfTone(_ sessionId: Int, tone: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		guard let dtmfTone = DTMFTone(rawValue: tone) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.DTMF.Key.tone: dtmfTone
+		]
+		post(name: SIPNotification.DTMF.received, session: session, info: info)
 	}
 
 	public func onRecvOptions(_ optionsMessage: UnsafeMutablePointer<Int8>!) {
+		let message = string(from: optionsMessage)
+		let info: [String: Any] = [
+			SIPNotification.Options.Key.message: message
+		]
+		post(name: SIPNotification.Options.received, info: info)
 	}
 
 	public func onRecvInfo(_ infoMessage: UnsafeMutablePointer<Int8>!) {
+		let message = string(from: infoMessage)
+		let info: [String: Any] = [
+			SIPNotification.Info.Key.message: message
+		]
+		post(name: SIPNotification.Info.received, info: info)
 	}
 
-	public func onPresenceRecvSubscribe(_ subscribeId: Int, fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, subject: UnsafeMutablePointer<Int8>!) {
+	public func onPresenceRecvSubscribe(
+			_ subscribeId: Int,
+			fromDisplayName: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!,
+			subject: UnsafeMutablePointer<Int8>!) {
+
+		let message = DefaultSIPPresenceSubscription(
+				id: subscribeId,
+				subject: string(from: subject),
+				name: string(from: fromDisplayName),
+				number: string(from: from))
+		let info: [String: Any] = [
+			SIPNotification.Presence.Key.message: message
+		]
+		post(name: SIPNotification.Presence.receivedSubscription, info: info)
 	}
 
-	public func onPresenceOnline(_ fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, stateText: UnsafeMutablePointer<Int8>!) {
+	public func onPresenceOnline(
+			_ fromDisplayName: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!,
+			stateText: UnsafeMutablePointer<Int8>!) {
+		let message = DefaultSIPPresenceOnline(
+				stateText: string(from: stateText),
+				name: string(from: fromDisplayName),
+				number: string(from: from))
+		let info: [String: Any] = [
+			SIPNotification.Presence.Key.message: message
+		]
+		post(name: SIPNotification.Presence.online, info: info)
 	}
 
-	public func onPresenceOffline(_ fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!) {
+	public func onPresenceOffline(
+			_ fromDisplayName: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!) {
+		let message = DefaultSIPPresence(
+				name: string(from: fromDisplayName),
+				number: string(from: from))
+		let info: [String: Any] = [
+			SIPNotification.Presence.Key.message: message
+		]
+		post(name: SIPNotification.Presence.offline, info: info)
 	}
 
-	public func onRecvMessage(_ sessionId: Int, mimeType: UnsafeMutablePointer<Int8>!, subMimeType: UnsafeMutablePointer<Int8>!, messageData: UnsafeMutablePointer<UInt8>!, messageDataLength: Int32) {
+	public func onRecvMessage(
+			_ sessionId: Int,
+			mimeType: UnsafeMutablePointer<Int8>!,
+			subMimeType: UnsafeMutablePointer<Int8>!,
+			messageData: UnsafeMutablePointer<UInt8>!,
+			messageDataLength: Int32) {
+		let data = Data(bytes: messageData, count: Int(messageDataLength))
+		let message = DefaultSIPMessage(
+				mimeType: string(from: mimeType),
+				subMimeType: string(from: subMimeType),
+				data: data)
+		let info: [String: Any] = [
+			SIPNotification.Message.Key.message: message
+		]
+		post(name: SIPNotification.Message.received, info: info)
 	}
 
-	public func onRecvOutOfDialogMessage(_ fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, toDisplayName: UnsafeMutablePointer<Int8>!, to: UnsafeMutablePointer<Int8>!, mimeType: UnsafeMutablePointer<Int8>!, subMimeType: UnsafeMutablePointer<Int8>!, messageData: UnsafeMutablePointer<UInt8>!, messageDataLength: Int32) {
+	public func onRecvOutOfDialogMessage(
+			_ fromDisplayName: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!,
+			toDisplayName: UnsafeMutablePointer<Int8>!,
+			to: UnsafeMutablePointer<Int8>!,
+			mimeType: UnsafeMutablePointer<Int8>!,
+			subMimeType: UnsafeMutablePointer<Int8>!,
+			messageData: UnsafeMutablePointer<UInt8>!,
+			messageDataLength: Int32) {
+		let data = Data(bytes: messageData, count: Int(messageDataLength))
+		let message = DefaultSIPOutOfDialogMessageWithData(
+				fromName: string(from: fromDisplayName),
+				fromNumber: string(from: from),
+				toName: string(from: toDisplayName),
+				toNumber: string(from: to),
+				mimeType: string(from: mimeType),
+				subMimeType: string(from: subMimeType),
+				data: data)
+		let info: [String: Any] = [
+			SIPNotification.Message.Key.message: message
+		]
+		post(name: SIPNotification.Message.receivedOutOfDialog, info: info)
 	}
 
 	public func onSendMessageSuccess(_ sessionId: Int, messageId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.Message.Key.id: messageId
+		]
+		post(name: SIPNotification.Message.sendSuccessful, session: session, info: info)
 	}
 
-	public func onSendMessageFailure(_ sessionId: Int, messageId: Int, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	public func onSendMessageFailure(
+			_ sessionId: Int,
+			messageId: Int,
+			reason: UnsafeMutablePointer<Int8>!,
+			code: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let reason = DefaultSIPMessageReason(
+				id: messageId,
+				reason: string(from: reason),
+				code: code)
+		let info: [String: Any] = [
+			SIPNotification.Message.Key.reason: reason
+		]
+		post(name: SIPNotification.Message.sendFailure, session: session, info: info)
 	}
 
-	public func onSendOutOfDialogMessageSuccess(_ messageId: Int, fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, toDisplayName: UnsafeMutablePointer<Int8>!, to: UnsafeMutablePointer<Int8>!) {
+	public func onSendOutOfDialogMessageSuccess(
+			_ messageId: Int,
+			fromDisplayName: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!,
+			toDisplayName: UnsafeMutablePointer<Int8>!,
+			to: UnsafeMutablePointer<Int8>!) {
+		let message = DefaultSIPOutOfDialogMessage(
+				id: messageId,
+				fromName: string(from: fromDisplayName),
+				fromNumber: string(from: from),
+				toName: string(from: toDisplayName),
+				toNumber: string(from: to))
+		let info: [String: Any] = [
+			SIPNotification.Message.Key.message: message
+		]
+		post(name: SIPNotification.Message.sendOutOfDialogSuccess, info: info)
 	}
 
-	public func onSendOutOfDialogMessageFailure(_ messageId: Int, fromDisplayName: UnsafeMutablePointer<Int8>!, from: UnsafeMutablePointer<Int8>!, toDisplayName: UnsafeMutablePointer<Int8>!, to: UnsafeMutablePointer<Int8>!, reason: UnsafeMutablePointer<Int8>!, code: Int32) {
+	public func onSendOutOfDialogMessageFailure(
+			_ messageId: Int,
+			fromDisplayName: UnsafeMutablePointer<Int8>!,
+			from: UnsafeMutablePointer<Int8>!,
+			toDisplayName: UnsafeMutablePointer<Int8>!,
+			to: UnsafeMutablePointer<Int8>!,
+			reason: UnsafeMutablePointer<Int8>!,
+			code: Int32) {
+		let message = DefaultSIPOutOfDialogMessage(
+				id: messageId,
+				fromName: string(from: fromDisplayName),
+				fromNumber: string(from: from),
+				toName: string(from: toDisplayName),
+				toNumber: string(from: to))
+		let reason = DefaultSIPReason(
+				reason: string(from: reason),
+				code: code)
+		let info: [String: Any] = [
+			SIPNotification.Message.Key.message: message,
+			SIPNotification.Message.Key.reason: reason
+		]
+		post(name: SIPNotification.Message.sendOutOfDialogSuccess, info: info)
 	}
 
 	public func onPlayAudioFileFinished(_ sessionId: Int, fileName: UnsafeMutablePointer<Int8>!) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let info: [String: Any] = [
+			SIPNotification.Play.Key.fileName: fileName
+		]
+		post(name: SIPNotification.Play.audioFileFinished, session: session, info: info)
 	}
 
 	public func onPlayVideoFileFinished(_ sessionId: Int) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		post(name: SIPNotification.Play.videoFileFinished, session: session)
 	}
 
-	public func onReceivedRTPPacket(_ sessionId: Int, isAudio: Bool, rtpPacket RTPPacket: UnsafeMutablePointer<UInt8>!, packetSize: Int32) {
+	public func onReceivedRTPPacket(
+			_ sessionId: Int,
+			isAudio: Bool,
+			rtpPacket: UnsafeMutablePointer<UInt8>!,
+			packetSize: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let data = Data(bytes: rtpPacket, count: Int(packetSize))
+		let info: [String: Any] = [
+			SIPNotification.RTP.Key.data: data
+		]
+		post(name: SIPNotification.RTP.received, session: session, info: info)
 	}
 
-	public func onSendingRTPPacket(_ sessionId: Int, isAudio: Bool, rtpPacket RTPPacket: UnsafeMutablePointer<UInt8>!, packetSize: Int32) {
+	public func onSendingRTPPacket(
+			_ sessionId: Int,
+			isAudio: Bool,
+			rtpPacket: UnsafeMutablePointer<UInt8>!,
+			packetSize: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let data = Data(bytes: rtpPacket, count: Int(packetSize))
+		let info: [String: Any] = [
+			SIPNotification.RTP.Key.data: data
+		]
+		post(name: SIPNotification.RTP.sending, session: session, info: info)
 	}
 
-	public func onAudioRawCallback(_ sessionId: Int, audioCallbackMode: Int32, data: UnsafeMutablePointer<UInt8>!, dataLength: Int32, samplingFreqHz: Int32) {
+	// This needs to pass the data to a delegate in real time...
+
+	public func onAudioRawCallback(
+			_ sessionId: Int,
+			audioCallbackMode: Int32,
+			data: UnsafeMutablePointer<UInt8>!,
+			dataLength: Int32,
+			samplingFreqHz: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let rawData = Data(bytes: data, count: Int(dataLength))
+		let stream = DefaultSIPAudioStream(
+				mode: audioCallbackMode,
+				samplingFreqHz: samplingFreqHz,
+				data: rawData)
 	}
 
-	public func onVideoRawCallback(_ sessionId: Int, videoCallbackMode: Int32, width: Int32, height: Int32, data: UnsafeMutablePointer<UInt8>!, dataLength: Int32) -> Int32 {
+	public func onVideoRawCallback(
+			_ sessionId: Int,
+			videoCallbackMode: Int32,
+			width: Int32,
+			height: Int32,
+			data: UnsafeMutablePointer<UInt8>!,
+			dataLength: Int32) -> Int32 {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return 0
+		}
+		let rawData = Data(bytes: data, count: Int(dataLength))
+		let stream = DefaultSIPVideoStream(
+				mode: videoCallbackMode,
+				width: width,
+				height: height,
+				data: rawData)
 		return 0
 	}
 
-	public func onVideoDecoderCallback(_ sessionId: Int, width: Int32, height: Int32, framerate: Int32, bitrate: Int32) {
+	public func onVideoDecoderCallback(
+			_ sessionId: Int,
+			width: Int32,
+			height: Int32,
+			framerate: Int32,
+			bitrate: Int32) {
+		guard let session = sessionManager.session(byID: sessionId) else {
+			return
+		}
+		let message = DefaultSIPVideoDecoded(
+				width: width,
+				height: height,
+				frameRate: framerate,
+				bitRate: bitrate)
+		let info: [String: Any] = [
+			SIPNotification.Stream.Key.videoInfo: message
+		]
+		post(name: SIPNotification.Stream.videoDecoded, session: session, info: info)
 	}
 
 }

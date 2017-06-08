@@ -165,6 +165,39 @@ public enum SIPAudioCodec: Int32 {
 	case opus
 	case g7221 = 121
 
+	static func from(_ text: String) -> SIPAudioCodec? {
+		switch text.lowercased() {
+		case "none": return .none
+		case "g729": return .g729
+		case "pcma": return .pcma
+		case "pcmu": return .pcmu
+		case "gsm": return .gsm
+		case "g722": return .g722
+		case "ilbc": return .ilbc
+		case "amr": return .amr
+		case "amrwb": return .amrwb
+		case "speex": return .speex
+		case "dtmf": return .dtmf
+		case "speexWB": return .speexWB
+		case "isacWB": return .isacWB
+		case "isacsWB": return .isacsWB
+		case "opus": return .opus
+		case "g7221": return .g7221
+		default: return nil
+		}
+	}
+
+	static func from(_ list: [String]) -> [SIPAudioCodec] {
+		var results: [SIPAudioCodec] = []
+		for item in list {
+			guard let value = from(item) else {
+				continue
+			}
+			results.append(value)
+		}
+		return results
+	}
+
 	var type: AUDIOCODEC_TYPE {
 		switch self {
 		case .none: return AUDIOCODEC_NONE
@@ -194,6 +227,29 @@ public enum SIPVideoCodec: Int32 {
 	case h263PlusH1998 = 115
 	case h264 = 125
 	case vp8 = 120
+
+	static func from(_ text: String) -> SIPVideoCodec? {
+		switch text.lowercased() {
+		case "none": return .none
+		case "i420": return .i420
+		case "h263": return .h263
+		case "h263PlusH1998": return .h263PlusH1998
+		case "h264": return .h264
+		case "vp8": return .vp8
+		default: return nil
+		}
+	}
+
+	static func from(_ list: [String]) -> [SIPVideoCodec] {
+		var results: [SIPVideoCodec] = []
+		for item in list {
+			guard let value = from(item) else {
+				continue
+			}
+			results.append(value)
+		}
+		return results
+	}
 
 	var type: VIDEOCODEC_TYPE {
 		switch self {
