@@ -279,3 +279,25 @@ public enum SIPDTMF: Int32 {
 		}
 	}
 }
+
+public enum SIPSessionRefreshMode: Int32 {
+	case uac = 0
+	case uas
+
+	var type: SESSION_REFRESH_MODE {
+		switch self {
+		case .uac: return SESSION_REFERESH_UAC
+		case .uas: return SESSION_REFERESH_UAS
+		}
+	}
+}
+
+public protocol SIPPortRange {
+	var minimum: Int32 { get }
+	var maximum: Int32 { get }
+}
+
+public struct DefaultSIPPortRange: SIPPortRange {
+  public let minimum: Int32
+	public let maximum: Int32
+}

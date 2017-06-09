@@ -11,8 +11,11 @@
 		3ED4A036D8C14161536EDCB3 /* Stream.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A882F69CCC780BB1328C /* Stream.swift */; };
 		3ED4A747B7470593FDAF16E0 /* SIPNICManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A574925170B661B21BEF /* SIPNICManager.swift */; };
 		3ED4A8ACF2D81C884EAFC30A /* SessionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A71B504772124C9870E0 /* SessionManager.swift */; };
+		3ED4A9E282725F18840B7CD9 /* AudioManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4AECF0F22B1B8E73F314A /* AudioManager.swift */; };
 		3ED4AA6E2661648E0D1A21D8 /* CodecManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A30A86E428B9B27D5D42 /* CodecManager.swift */; };
 		3ED4AB8B95E2F89392EE5C79 /* Messaging.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4ADE25F69276855749858 /* Messaging.swift */; };
+		3ED4ABD6E8CD142DB0FA3D7E /* VideoManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A4BFD372B99B99DB8B09 /* VideoManager.swift */; };
+		3ED4ABF55B42F5976CE962A6 /* HeaderExtensionManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A4C589F8BC1E0977141A /* HeaderExtensionManager.swift */; };
 		3ED4AEDA38C71048AAF7A5DE /* Presence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4AD292C54396AEEB7AB19 /* Presence.swift */; };
 		3ED4AFA46453D4CBF84653B4 /* Referral.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ED4A32279D26A68CAB8BCEC /* Referral.swift */; };
 		5A682A1EBC46CEAA5A34F4E2 /* Types.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A6823D8DD49B540F529FD06 /* Types.swift */; };
@@ -40,11 +43,14 @@
 		12AB35761EE7795E00919C7C /* PortSIPLib.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PortSIPLib.framework; path = lib/PortSIPLib.framework; sourceTree = "<group>"; };
 		3ED4A30A86E428B9B27D5D42 /* CodecManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = CodecManager.swift; sourceTree = "<group>"; };
 		3ED4A32279D26A68CAB8BCEC /* Referral.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Referral.swift; sourceTree = "<group>"; };
+		3ED4A4BFD372B99B99DB8B09 /* VideoManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = VideoManager.swift; sourceTree = "<group>"; };
+		3ED4A4C589F8BC1E0977141A /* HeaderExtensionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HeaderExtensionManager.swift; sourceTree = "<group>"; };
 		3ED4A574925170B661B21BEF /* SIPNICManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SIPNICManager.swift; sourceTree = "<group>"; };
 		3ED4A71B504772124C9870E0 /* SessionManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = SessionManager.swift; sourceTree = "<group>"; };
 		3ED4A882F69CCC780BB1328C /* Stream.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Stream.swift; sourceTree = "<group>"; };
 		3ED4AD292C54396AEEB7AB19 /* Presence.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Presence.swift; sourceTree = "<group>"; };
 		3ED4ADE25F69276855749858 /* Messaging.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Messaging.swift; sourceTree = "<group>"; };
+		3ED4AECF0F22B1B8E73F314A /* AudioManager.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AudioManager.swift; sourceTree = "<group>"; };
 		5A6823D8DD49B540F529FD06 /* Types.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Types.swift; sourceTree = "<group>"; };
 		700473311E661AE500940807 /* BeamSIPKit.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BeamSIPKit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		700473351E661AE500940807 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
@@ -116,6 +122,9 @@
 				3ED4ADE25F69276855749858 /* Messaging.swift */,
 				3ED4AD292C54396AEEB7AB19 /* Presence.swift */,
 				3ED4A882F69CCC780BB1328C /* Stream.swift */,
+				3ED4A4C589F8BC1E0977141A /* HeaderExtensionManager.swift */,
+				3ED4A4BFD372B99B99DB8B09 /* VideoManager.swift */,
+				3ED4AECF0F22B1B8E73F314A /* AudioManager.swift */,
 			);
 			path = BeamSIPKit;
 			sourceTree = "<group>";
@@ -263,6 +272,9 @@
 				3ED4AB8B95E2F89392EE5C79 /* Messaging.swift in Sources */,
 				3ED4AEDA38C71048AAF7A5DE /* Presence.swift in Sources */,
 				3ED4A036D8C14161536EDCB3 /* Stream.swift in Sources */,
+				3ED4ABF55B42F5976CE962A6 /* HeaderExtensionManager.swift in Sources */,
+				3ED4ABD6E8CD142DB0FA3D7E /* VideoManager.swift in Sources */,
+				3ED4A9E282725F18840B7CD9 /* AudioManager.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

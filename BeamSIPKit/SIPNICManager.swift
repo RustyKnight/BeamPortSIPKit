@@ -13,12 +13,12 @@ public protocol SIPNICManager {
 
 class DefaultSIPNICManager: DefaultSIPSupportManager, SIPNICManager {
 
-	var count: Int32 {
-		return portSIPSDK.getNICNums()
-	}
-
 	override init(portSIPSDK: PortSIPSDK) {
 		super.init(portSIPSDK: portSIPSDK)
+	}
+
+	var count: Int32 {
+		return portSIPSDK.getNICNums()
 	}
 
 	func localIPAddress(forNIC: Int32) -> String {

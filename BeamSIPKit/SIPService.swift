@@ -176,6 +176,7 @@ public protocol SIPServiceConfiguration {
 	var videoDeviceLayer: SIPDeviceLayer { get }
 	var srtp: SIPSRTP { get }
 	var licenseKey: String { get }
+	var instanceID: String? { get }
 }
 
 public protocol SIPServiceCredentials {
@@ -191,13 +192,48 @@ public protocol SIPServer {
 }
 
 public protocol SIPServiceAccountConfiguration {
-
 	var sipServer: SIPServer { get }
 	var credentials: SIPServiceCredentials { get }
 	var localServer: SIPServer { get }
 	var userDomain: String { get }
 	var stunServer: SIPServer { get }
 	var outboundServer: SIPServer { get }
+}
+
+public struct DefaultSIPServiceConfiguration: SIPServiceConfiguration {
+	public let transportProtocol: SIPTransportProtocol
+	public let logLevel: SIPLogLevel
+	public let logFilePath: String
+	public let maxCallLines: Int32
+	public let sipAgent: String
+	public let audioDeviceLayer: SIPDeviceLayer
+	public let videoDeviceLayer: SIPDeviceLayer
+	public let srtp: SIPSRTP
+	public let licenseKey: String
+	public let instanceID: String?
+
+	public init(
+			transportProtocol: SIPTransportProtocol,
+			logLevel: SIPLogLevel,
+			logFilePath: String,
+			maxCallLines: Int32,
+			sipAgent: String,
+			audioDeviceLayer: SIPDeviceLayer,
+			videoDeviceLayer: SIPDeviceLayer,
+			srtp: SIPSRTP,
+			licenseKey: String,
+			instanceID: String? = nil) {
+		self.transportProtocol = transportProtocol
+		self.logLevel = logLevel
+		self.logFilePath = logFilePath
+		self.maxCallLines = maxCallLines
+		self.sipAgent = sipAgent
+		self.audioDeviceLayer = audioDeviceLayer
+		self.videoDeviceLayer = videoDeviceLayer
+		self.srtp = srtp
+		self.licenseKey = licenseKey
+		self.instanceID = instanceID
+	}
 }
 
 public struct DefaultSIPServiceCredentials: SIPServiceCredentials {
@@ -227,7 +263,7 @@ public struct DefaultLocalServer: SIPServer {
 	}
 }
 
-public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
+public struct DefaultSIPServiceAccountConfiguration: SIPServiceAccountConfiguration {
 	public let sipServer: SIPServer
 	public let credentials: SIPServiceCredentials
 
@@ -235,6 +271,8 @@ public struct DefaultSIPServiceConfiguration: SIPServiceAccountConfiguration {
 	public let userDomain: String
 	public let stunServer: SIPServer
 	public let outboundServer: SIPServer
+
+
 
 	public init(
 			sipServer: SIPServer,
@@ -266,14 +304,17 @@ public protocol SIPService {
 
 	func initialise(withConfiguration config: SIPServiceConfiguration) throws
 	func deinitialise()
+
 	func authenticate(_ account: SIPServiceAccountConfiguration) throws
 
 	func register(expires: Int32, retries: Int32) throws
 	func unregister() throws
 
 	var isInitialised: Bool { get }
-	func refreshInterval(_ interval: Int32) throws
 	var isRegistered: Bool { get }
+
+	func refreshInterval(_ interval: Int32) throws
+	func refresh(expires: Int32) throws
 
 	var status: SIPServiceStatus { get }
 
@@ -287,10 +328,50 @@ public protocol SIPService {
 	var audioCodeManager: AudioCodecManager { get }
 	var videoCodeManager: VideoCodecManager { get }
 
-	var isSpeakerOn: Bool { get set }
+	// MARK: Additional Settings Functions
+
+	func set(displayName: String) throws
+	func set(reliableProvisionalEnabled: Bool) throws
+	func set(tags3GppEnabled: Bool) throws
+	func set(callBackEnabled: Bool) throws
+	func set(srtpPoliy: SIPSRTP) throws
+
+	func setRTPPortRange(audio: SIPPortRange, video: SIPPortRange) throws
+	func setRTCPPortRange(audio: SIPPortRange, video: SIPPortRange) throws
+
+	func set(callForwardingTo: String, forBusyOnly: Bool) throws
+	func disableCallForwarding() throws
+
+	func set(sessionTimerSeconds: Int32, refreshMode: SIPSessionRefreshMode) throws
+	func disableSessionTimer() throws
+
+	var isDoNotDisturb: Bool { get set }
+
+	func detectMWI() throws
+	func set(checkMWIEnabled: Bool) throws
+
+	func set(keepRTPAlive: Bool, keepAlivePayloadType: Int32, deltaTransmitTimeMS: Int32) throws
+
+	func set(keepAliveSeconds: Int32) throws
+	func set(audioSamplesPTime: Int32, maxPTime: Int32) throws
+
+	func addSupportedMimeType(methodName: String, mimeType: String, subMimeType: String) throws
+
 	var isKeepAwake: Bool { get set }
-	var isMicroPhoneMuted: Bool { get set }
-	var isSpeakerMuted: Bool { get set }
+
+	// MARK: Access SIP message header functions
+
+	var headerExtensionManager: HeaderExtensionManager { get }
+	var headerManager: HeaderManager { get }
+
+	// MARK: Audio and video functions
+
+	var audioManager: AudioManager { get }
+	var videoManager: VideoManager { get }
+
+	// MARK: Call functions
+
+	// MARK: Send audio and video stream functions
 
 }
 
@@ -361,6 +442,13 @@ class DefaultSIPService: NSObject, SIPService {
 				videoDeviceLayer: config.videoDeviceLayer.rawValue)
 		guard ret == 0 else {
 			throw SIPError.initializationError(code: ret)
+		}
+
+		if let instanceID = config.instanceID {
+			let ret = portSIPSDK.setInstanceId(instanceID)
+			guard ret == 0 else {
+				throw SIPError.apiCallFailedWith(code: ret)
+			}
 		}
 
 		portSIPSDK.setSrtpPolicy(config.srtp.type);
@@ -438,11 +526,20 @@ class DefaultSIPService: NSObject, SIPService {
 		}
 	}
 
+	func refresh(expires: Int32 = 3600) throws {
+		let result = portSIPSDK.refreshRegisterServer(expires)
+		guard result == 0 else {
+			deinitialise()
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
 	var status: SIPServiceStatus = .disconnected
 
 	var nicManager: SIPNICManager {
 		return DefaultSIPNICManager(portSIPSDK: portSIPSDK)
 	}
+
 	var sessionManager: SIPSessionManager {
 		return DefaultSIPSessionManager(portSIPSDK: portSIPSDK)
 	}
@@ -455,14 +552,6 @@ class DefaultSIPService: NSObject, SIPService {
 		return VideoCodecManager(portSIPSDK: portSIPSDK)
 	}
 
-	var isSpeakerOn: Bool = false {
-		didSet {
-			if portSIPSDK.setLoudspeakerStatus(isSpeakerOn) != 0 && isSpeakerOn {
-				isSpeakerOn = false
-			}
-		}
-	}
-
 	var isKeepAwake: Bool = false {
 		didSet {
 			if isKeepAwake {
@@ -473,18 +562,156 @@ class DefaultSIPService: NSObject, SIPService {
 		}
 	}
 
-	var isMicroPhoneMuted: Bool = false {
-		didSet {
-			portSIPSDK.muteMicrophone(isMicroPhoneMuted)
+	// MARK: Additional Settings Functions
+
+	func set(displayName: String) throws {
+		let result = portSIPSDK.setDisplayName(displayName)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
 		}
 	}
 
-	var isSpeakerMuted: Bool = false {
-		didSet {
-			portSIPSDK.muteSpeaker(isSpeakerMuted)
+	func set(reliableProvisionalEnabled: Bool) throws {
+		let result = portSIPSDK.enableReliableProvisional(reliableProvisionalEnabled)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
 		}
 	}
 
+	func set(tags3GppEnabled: Bool) throws {
+		let result = portSIPSDK.enable3GppTags(tags3GppEnabled)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(callBackEnabled: Bool) throws {
+		portSIPSDK.enableCallbackSendingSignaling(callBackEnabled)
+	}
+
+	func set(srtpPoliy: SIPSRTP) throws {
+		let result = portSIPSDK.setSrtpPolicy(srtpPoliy.type)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func setRTPPortRange(audio: SIPPortRange, video: SIPPortRange) throws {
+		let result = portSIPSDK.setRtpPortRange(
+				audio.minimum,
+				maximumRtpAudioPort: audio.maximum,
+				minimumRtpVideoPort: video.minimum,
+				maximumRtpVideoPort: video.maximum)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func setRTCPPortRange(audio: SIPPortRange, video: SIPPortRange) throws {
+		let result = portSIPSDK.setRtcpPortRange(
+				audio.minimum,
+				maximumRtcpAudioPort: audio.maximum,
+				minimumRtcpVideoPort: video.minimum,
+				maximumRtcpVideoPort: video.maximum)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(callForwardingTo: String, forBusyOnly: Bool) throws {
+		let result = portSIPSDK.enableCallForward(forBusyOnly, forwardTo: callForwardingTo)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func disableCallForwarding() throws {
+		let result = portSIPSDK.disableCallForward()
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(sessionTimerSeconds: Int32, refreshMode: SIPSessionRefreshMode) throws {
+		let result = portSIPSDK.enableSessionTimer(sessionTimerSeconds, refreshMode: refreshMode.type)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func disableSessionTimer() throws {
+		let result = portSIPSDK.disableSessionTimer()
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	var isDoNotDisturb: Bool = false {
+		didSet {
+			portSIPSDK.setDoNotDisturb(isDoNotDisturb)
+		}
+	}
+
+	func detectMWI() throws {
+		let result = portSIPSDK.detectMwi()
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(checkMWIEnabled: Bool) throws {
+		let result = portSIPSDK.enableCheckMwi(checkMWIEnabled)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(keepRTPAlive: Bool, keepAlivePayloadType: Int32, deltaTransmitTimeMS: Int32) throws {
+		let result = portSIPSDK.setRtpKeepAlive(
+				keepRTPAlive,
+				keepAlivePayloadType: keepAlivePayloadType,
+				deltaTransmitTimeMS: deltaTransmitTimeMS)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(keepAliveSeconds: Int32) throws {
+		let result = portSIPSDK.setKeepAliveTime(keepAliveSeconds)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func set(audioSamplesPTime: Int32, maxPTime: Int32) throws {
+		let result = portSIPSDK.setAudioSamples(audioSamplesPTime, maxPtime: maxPTime)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func addSupportedMimeType(methodName: String, mimeType: String, subMimeType: String) throws {
+		let result = portSIPSDK.addSupportedMimeType(
+				methodName,
+				mimeType: mimeType,
+				subMimeType: subMimeType)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	var headerExtensionManager: HeaderExtensionManager {
+		return DefaultHeaderExtensionManager(portSIPSDK: portSIPSDK)
+	}
+	var headerManager: HeaderManager {
+		return DefaultHeaderManager(portSIPSDK: portSIPSDK)
+	}
+	var audioManager: AudioManager {
+		return DefaultAudioManager(portSIPSDK: portSIPSDK)
+	}
+	var videoManager: VideoManager {
+		return DefaultVideoManager(portSIPSDK: portSIPSDK)
+	}
 }
 
 public protocol SIPRegistrationStatus {
@@ -817,6 +1044,7 @@ extension DefaultSIPService: PortSIPEventDelegate {
 		let info: [String: Any] = [
 			SIPNotification.Refer.Key.referral:
 			DefaultSIPReferral(
+					portSIPSDK: portSIPSDK,
 					id: referId,
 					to: string(from: to),
 					from: string(from: from),

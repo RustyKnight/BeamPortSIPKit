@@ -64,10 +64,16 @@ public protocol SIPSession {
 	func end()
 
 	func reject(withReason code: SIPResponseCode.ClientFailure)
-
 	func rejectWithBusyHere()
-
 	func rejectWithUnavailable()
+
+	func update(audioEnabled: Bool, videoEnabled: Bool) throws
+
+	func mute(incomingAudio: Bool, outgoingAudio: Bool, incomingVideo: Bool, outgoingVideo: Bool) throws
+	func forward(to: String) throws
+
+	func refer(to: String) throws
+	func attendedRefer(replaceSessionID: Int, referTo: String) throws
 }
 
 class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
@@ -157,6 +163,45 @@ class DefaultSIPSession: DefaultSIPSupportManager, SIPSession {
 				playDtmfTone: true)
 	}
 
+	func update(audioEnabled: Bool, videoEnabled: Bool) throws {
+		let result = portSIPSDK.updateCall(id, enableAudio: audioEnabled, enableVideo: videoEnabled)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func mute(incomingAudio: Bool, outgoingAudio: Bool, incomingVideo: Bool, outgoingVideo: Bool) throws {
+		let result = portSIPSDK.muteSession(
+				id,
+				muteIncomingAudio: incomingAudio,
+				muteOutgoingAudio: outgoingAudio,
+				muteIncomingVideo: incomingVideo,
+				muteOutgoingVideo: outgoingVideo)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func forward(to: String) throws {
+		let result = portSIPSDK.forwardCall(id, forwardTo: to)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func refer(to: String) throws {
+		let result = portSIPSDK.refer(id, referTo: to)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
+
+	func attendedRefer(replaceSessionID: Int, referTo: String) throws {
+		let result = portSIPSDK.attendedRefer(id, replaceSessionId: replaceSessionID, referTo: referTo)
+		guard result == 0 else {
+			throw SIPError.apiCallFailedWith(code: result)
+		}
+	}
 }
 
 public enum SIPSessionManagerError: Error {
