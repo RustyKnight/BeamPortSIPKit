@@ -411,7 +411,6 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/lib",
-					"$(PROJECT_DIR)/frameworks",
 				);
 				HEADER_SEARCH_PATHS = "lib/**";
 				INFOPLIST_FILE = BeamSIPKit/Info.plist;
@@ -441,7 +440,6 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(PROJECT_DIR)/lib",
-					"$(PROJECT_DIR)/frameworks",
 				);
 				HEADER_SEARCH_PATHS = "lib/**";
 				INFOPLIST_FILE = BeamSIPKit/Info.plist;
