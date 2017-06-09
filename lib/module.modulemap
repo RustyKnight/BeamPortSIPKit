@@ -6,4 +6,5 @@ module PortSIPLib {
 	header "PortSIPLib.framework/Headers/PortSIPSDK.h"
 
 	export *
+	module * { export * }
 }
